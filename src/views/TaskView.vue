@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/task'
 import { useUserStore } from '@/stores/user'
+import type { TaskItem } from '@/types'
 import {
   CheckSquare,
   GraduationCap,
@@ -15,6 +17,7 @@ import {
 } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const taskStore = useTaskStore()
 const userStore = useUserStore()
 
@@ -25,6 +28,23 @@ const taskIconMap: Record<string, any> = {
   TrendingUp,
   GraduationCap,
   UserPlus
+}
+
+/** 任务触发事件 -> 可跳转的完成入口页（仅配置了 trigger 的任务才会跳转） */
+const triggerTargetMap: Record<string, string> = {
+  CLASS_SIGNIN: '/evaluation',
+  COURSE_EVALUATION: '/evaluation',
+  MAKE_TRADE: '/trade'
+}
+
+function goTarget(task: TaskItem): string | null {
+  if (!task.trigger) return null
+  return triggerTargetMap[task.trigger] || null
+}
+
+function handleGoComplete(task: TaskItem) {
+  const target = goTarget(task)
+  if (target) router.push(target)
 }
 
 function handleClaim(taskId: number) {
@@ -119,6 +139,13 @@ function handleClaim(taskId: number) {
                 <span v-else-if="task.isClaimed" class="claimed-tag">
                   已领取
                 </span>
+                <button
+                  v-else-if="goTarget(task)"
+                  class="go-btn"
+                  @click="handleGoComplete(task)"
+                >
+                  去完成
+                </button>
                 <span v-else class="locked-tag">
                   进行中
                 </span>
@@ -455,6 +482,22 @@ function handleClaim(taskId: number) {
 
 .claim-btn:hover {
   opacity: 0.9;
+}
+
+.go-btn {
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px dashed rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.go-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
 }
 
 .claimed-tag {

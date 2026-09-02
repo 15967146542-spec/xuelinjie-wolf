@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TaskItem } from '@/types'
+import type { TaskItem, TaskTrigger } from '@/types'
 import { initialTasks } from '@/mock/initialData'
 import { useUserStore } from './user'
+
+/** localStorage 中记录“每日任务最近一次结算日期”的键名 */
+const DAILY_DATE_KEY = 'xuelinjie-task-daily-date'
+
+function todayKey(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+}
 
 export const useTaskStore = defineStore('task', () => {
   const userStore = useUserStore()
@@ -15,6 +23,43 @@ export const useTaskStore = defineStore('task', () => {
   const uncompletedCount = computed(() => {
     return tasks.value.filter((t) => !t.isClaimed && t.current >= t.target).length
   })
+
+  /**
+   * 每日任务跨天重置：
+   * 本地记录上一次结算日期，跨到新的一天时将全部 DAILY 任务进度归零并解锁领取。
+   * 首次打开（无记录）时保留初始 Mock 数据，便于演示当日状态；仅在新的一天触发重置。
+   */
+  function ensureDailyReset() {
+    try {
+      const lastDate = localStorage.getItem(DAILY_DATE_KEY)
+      const today = todayKey()
+      if (lastDate && lastDate !== today) {
+        tasks.value.forEach((t) => {
+          if (t.type === 'DAILY') {
+            t.current = 0
+            t.isClaimed = false
+          }
+        })
+      }
+      localStorage.setItem(DAILY_DATE_KEY, today)
+    } catch {
+      // localStorage 不可用（隐私模式等）时跳过跨天重置，不阻塞功能
+    }
+  }
+
+  ensureDailyReset()
+
+  /**
+   * 通过业务事件推进对应每日任务进度（由评价/签到/交易等 store 联动调用）。
+   * 只推进尚未领取、且配置了相同 trigger 的 DAILY 任务。
+   */
+  function advanceTaskByTrigger(trigger: TaskTrigger, delta = 1) {
+    tasks.value.forEach((t) => {
+      if (t.type === 'DAILY' && t.trigger === trigger && !t.isClaimed) {
+        advanceTaskProgress(t.id, delta)
+      }
+    })
+  }
 
   function claimTaskReward(taskId: number): { success: boolean; message: string } {
     const task = tasks.value.find((t) => t.id === taskId)
@@ -30,7 +75,7 @@ export const useTaskStore = defineStore('task', () => {
 
   function advanceTaskProgress(taskId: number, delta = 1) {
     const task = tasks.value.find((t) => t.id === taskId)
-    if (task && task.current < task.target) {
+    if (task && !task.isClaimed && task.current < task.target) {
       task.current = Math.min(task.target, task.current + delta)
     }
   }
@@ -42,6 +87,8 @@ export const useTaskStore = defineStore('task', () => {
     growthTasks,
     uncompletedCount,
     claimTaskReward,
-    advanceTaskProgress
+    advanceTaskProgress,
+    advanceTaskByTrigger,
+    ensureDailyReset
   }
 })

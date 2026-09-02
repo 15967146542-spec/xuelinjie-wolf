@@ -2,8 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { CourseSession, EvaluationItem } from '@/types'
 import { initialCourses, initialEvaluations } from '@/mock/initialData'
+import {
+  applyRatingAggregation,
+  EVALUATION_REWARD,
+  SIGNIN_REWARD
+} from '@/rules'
 import { useUserStore } from './user'
 import { useMarketStore } from './market'
+import { useTaskStore } from './task'
 
 export const useEvaluationStore = defineStore('evaluation', () => {
   const userStore = useUserStore()
@@ -19,9 +25,10 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     if (session.isSigned) return { success: false, message: '您已完成本节课签到' }
 
     session.isSigned = true
-    userStore.addBalance(100, `课堂打卡打赏: ${session.courseName}`, '课堂打卡')
+    userStore.addBalance(SIGNIN_REWARD, `课堂打卡打赏: ${session.courseName}`, '课堂打卡')
+    taskStore.advanceTaskByTrigger('CLASS_SIGNIN')
 
-    return { success: true, message: `签到成功！已获得课堂打卡奖励 +100 学币` }
+    return { success: true, message: `签到成功！已获得课堂打卡奖励 +${SIGNIN_REWARD} 学币` }
   }
 
   // Submit course review
@@ -60,21 +67,26 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     session.isEvaluated = true
 
     // Update stock ratings aggregation (Next day factor impact)
-    stock.recentRatings.unshift(params.rating)
-    if (stock.recentRatings.length > 5) {
-      stock.recentRatings.pop()
-    }
-    const sum = stock.recentRatings.reduce((acc, r) => acc + r, 0)
-    stock.last5AvgRating = Number((sum / stock.recentRatings.length).toFixed(2))
-    stock.ratingCount += 1
-    stock.rating = Number(((stock.rating * 0.95) + (params.rating * 0.05)).toFixed(1))
+    const agg = applyRatingAggregation(
+      {
+        recentRatings: stock.recentRatings,
+        rating: stock.rating,
+        ratingCount: stock.ratingCount
+      },
+      params.rating
+    )
+    stock.recentRatings = agg.recentRatings
+    stock.last5AvgRating = agg.last5AvgRating
+    stock.ratingCount = agg.ratingCount
+    stock.rating = agg.rating
 
     // Give reward
-    userStore.addBalance(80, `课后客观评价奖励: ${session.courseName}`, '课后评价')
+    userStore.addBalance(EVALUATION_REWARD, `课后客观评价奖励: ${session.courseName}`, '课后评价')
+    taskStore.advanceTaskByTrigger('COURSE_EVALUATION')
 
     return {
       success: true,
-      message: `评价已成功提交并进入聚合池！已获得 +80 学币，将在次日开盘前计入基本面因子。`
+      message: `评价已成功提交并进入聚合池！已获得 +${EVALUATION_REWARD} 学币，将在次日开盘前计入基本面因子。`
     }
   }
 
