@@ -5,6 +5,7 @@ import { useMarketStore } from '@/stores/market'
 import { useTradeStore } from '@/stores/trade'
 import { useUserStore } from '@/stores/user'
 import { useEvaluationStore } from '@/stores/evaluation'
+import type { TradeSide } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import RatingTrendChart from '@/components/RatingTrendChart.vue'
 import {
@@ -14,9 +15,6 @@ import {
   Sliders,
   ShieldCheck,
   MessageSquare,
-  HelpCircle,
-  Sparkles,
-  Lock,
   Coins
 } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
@@ -31,7 +29,7 @@ const evaluationStore = useEvaluationStore()
 const stockCode = computed(() => (route.params.code as string) || marketStore.selectedCode)
 const stock = computed(() => marketStore.stocks.find((s) => s.code === stockCode.value) || marketStore.stocks[0])
 
-const quickTradeSide = ref<'BUY' | 'SELL'>('BUY')
+const quickTradeSide = ref<TradeSide>('BUY')
 const tradeShares = ref<number>(10)
 const isSubmitting = ref(false)
 

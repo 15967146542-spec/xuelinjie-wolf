@@ -2,14 +2,13 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
-import { useTradeStore } from '@/stores/trade'
+import type { MarketSortBy, MarketTab, SortOrder, TeacherStock } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import {
   Search,
   Star,
   Flame,
   ArrowUpRight,
-  TrendingUp,
   Activity,
   Layers,
   Sparkles,
@@ -19,12 +18,11 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const marketStore = useMarketStore()
-const tradeStore = useTradeStore()
 
 const searchQuery = ref('')
-const activeTab = ref('ALL') // ALL, WATCHLIST, GAINERS, HIGH_RATING
-const sortBy = ref<'ratio' | 'price' | 'volume' | 'rating'>('ratio')
-const sortOrder = ref<'asc' | 'desc'>('desc')
+const activeTab = ref<MarketTab>('ALL')
+const sortBy = ref<MarketSortBy>('ratio')
+const sortOrder = ref<SortOrder>('desc')
 
 const filteredStocks = computed(() => {
   let list = [...marketStore.stocks]
@@ -67,12 +65,17 @@ const filteredStocks = computed(() => {
   return list
 })
 
+const totalAmountWan = computed(() => {
+  const totalAmount = marketStore.stocks.reduce((acc: number, s: TeacherStock) => acc + s.amount, 0)
+  return (totalAmount / 10000).toFixed(1)
+})
+
 function getRatio(stock: { currentPrice: number; prevClose: number }) {
   const val = ((stock.currentPrice - stock.prevClose) / stock.prevClose) * 100
   return Number(val.toFixed(2))
 }
 
-function handleRowClick(row: any) {
+function handleRowClick(row: TeacherStock) {
   marketStore.selectStock(row.code)
 }
 
@@ -117,9 +120,7 @@ function toggleFav(code: string, e: Event) {
               {{ marketStore.indexChangePct >= 0 ? '+' : '' }}{{ marketStore.indexChangePct }}%
             </span>
           </div>
-          <div class="index-sub">
-            今日成交总量: {{ (marketStore.stocks.reduce((acc, s) => acc + s.amount, 0) / 10000).toFixed(1) }}万学币
-          </div>
+          <div class="index-sub">今日成交总量: {{ totalAmountWan }}万学币</div>
         </div>
       </div>
     </div>

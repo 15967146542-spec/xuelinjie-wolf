@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { CourseSession, EvaluationItem } from '@/types'
+import type { ActionResult, CourseSession, EvaluationItem } from '@/types'
 import { initialCourses, initialEvaluations } from '@/mock/initialData'
 import {
   applyRatingAggregation,
@@ -20,7 +20,7 @@ export const useEvaluationStore = defineStore('evaluation', () => {
   const evaluations = ref<EvaluationItem[]>([...initialEvaluations])
 
   // Sign in to class session
-  function signInCourse(sessionId: string): { success: boolean; message: string } {
+  function signInCourse(sessionId: string): ActionResult {
     const session = courses.value.find((c) => c.id === sessionId)
     if (!session) return { success: false, message: '未找到该课程安排' }
     if (session.isSigned) return { success: false, message: '您已完成本节课签到' }
@@ -39,7 +39,7 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     tags: string[]
     comment: string
     anonymous?: boolean
-  }): { success: boolean; message: string } {
+  }): ActionResult {
     const session = courses.value.find((c) => c.id === params.sessionId)
     if (!session) return { success: false, message: '课程不存在' }
     if (!session.isSigned) return { success: false, message: '只有完成课堂签到的同学才能评价本课程！' }
