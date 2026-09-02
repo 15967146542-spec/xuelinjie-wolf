@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TeacherStock, KLinePoint, MacroFactor } from '@/types'
+import type { TeacherStock, KLinePoint, MacroFactor, NextDayProjection } from '@/types'
 import { initialStocks, initialMacroFactor, generateKLineData } from '@/mock/initialData'
 
 export const useMarketStore = defineStore('market', () => {
@@ -51,7 +51,7 @@ export const useMarketStore = defineStore('market', () => {
   }
 
   // Calculate simulated next-day price projection using formula
-  function calculateNextDayProjection(stock: TeacherStock) {
+  function calculateNextDayProjection(stock: TeacherStock): NextDayProjection {
     const alpha = macroFactor.value.alpha // 0.02
     const beta = macroFactor.value.beta   // 0.10
     const gamma = macroFactor.value.gamma // 0.005
