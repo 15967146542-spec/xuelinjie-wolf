@@ -54,7 +54,7 @@ const bulletLines = (lines) => lines.map((text) => ({ text, options: { bullet: {
   addText(slide, '校园教学评价与模拟投资激励平台', 0.72, 2.28, 7.6, 0.38, { fontSize: 18, color: 'DCE5D9' })
   slide.addShape(pptx.ShapeType.line, { x: 0.72, y: 3.08, w: 2.15, h: 0, line: { color: C.orange, width: 2 } })
   addText(slide, '项目立项答辩', 0.72, 3.35, 2.2, 0.3, { fontSize: 14, color: 'DCE5D9' })
-  addText(slide, '四人协作开发 | 前端原型项目', 0.72, 5.72, 4.7, 0.3, { fontSize: 12, color: 'BFCBBC' })
+  addText(slide, '五人协作开发 | 前端原型项目', 0.72, 5.72, 4.7, 0.3, { fontSize: 12, color: 'BFCBBC' })
   addText(slide, '2026 年 9 月', 0.72, 6.12, 3, 0.25, { fontSize: 10, color: 'BFCBBC' })
 }
 
@@ -135,20 +135,21 @@ const bulletLines = (lines) => lines.map((text) => ({ text, options: { bullet: {
   const slide = pptx.addSlide('MASTER')
   title(slide, '06 / Team', '团队分工与协作机制', '按页面和业务状态边界分工，用 Git 分支与 Pull Request 进行协作。')
   const members = [
-    ['成员 A', '行情与标的详情', 'Market / StockDetail / KLine'],
-    ['成员 B', '模拟交易与个人资产', 'Trade / Profile / trade store'],
-    ['成员 C', '评教、任务与排行榜', 'Evaluation / Task / Ranking'],
-    ['成员 D', '管理端与项目集成', 'Admin / Router / Types / QA']
+    ['钟森翔', '行情与标的详情', 'Market / StockDetail / KLine'],
+    ['周金淼', '模拟交易与个人资产', 'Trade / Profile / trade store'],
+    ['张善言', '评教与任务激励', 'Evaluation / Task / Trend'],
+    ['王溢诚', '排行榜与管理端', 'Ranking / Admin / ranking store'],
+    ['张宏瑜（组长）', '统筹、文档与集成验收', 'Navbar / Router / Types / QA']
   ]
   members.forEach(([person, scope, files], index) => {
-    const x = 0.7 + (index % 2) * 6.1
-    const y = 2.05 + Math.floor(index / 2) * 1.85
-    slide.addShape(pptx.ShapeType.roundRect, { x, y, w: 5.53, h: 1.42, rectRadius: 0.05, fill: { color: C.white }, line: { color: C.line, width: 0.7 } })
+    const positions = [[0.7, 2.0], [4.79, 2.0], [8.88, 2.0], [2.74, 3.78], [6.83, 3.78]]
+    const [x, y] = positions[index]
+    slide.addShape(pptx.ShapeType.roundRect, { x, y, w: 3.75, h: 1.3, rectRadius: 0.05, fill: { color: C.white }, line: { color: C.line, width: 0.7 } })
     slide.addShape(pptx.ShapeType.ellipse, { x: x + 0.28, y: y + 0.37, w: 0.68, h: 0.68, fill: { color: index % 2 ? C.green : C.orange }, line: { color: index % 2 ? C.green : C.orange } })
-    addText(slide, String.fromCharCode(65 + index), x + 0.28, y + 0.58, 0.68, 0.18, { fontSize: 11, bold: true, color: C.white, align: 'center' })
-    addText(slide, person, x + 1.18, y + 0.26, 1.0, 0.25, { fontSize: 13, bold: true })
-    addText(slide, scope, x + 2.18, y + 0.26, 2.85, 0.25, { fontSize: 13, bold: true })
-    addText(slide, files, x + 1.18, y + 0.76, 3.95, 0.22, { fontSize: 9.7, color: C.muted })
+    addText(slide, String(index + 1), x + 0.28, y + 0.58, 0.68, 0.18, { fontSize: 11, bold: true, color: C.white, align: 'center' })
+    addText(slide, person, x + 1.18, y + 0.2, 2.25, 0.24, { fontSize: 12, bold: true })
+    addText(slide, scope, x + 1.18, y + 0.51, 2.25, 0.24, { fontSize: 10.5, bold: true, color: C.green })
+    addText(slide, files, x + 1.18, y + 0.88, 2.25, 0.18, { fontSize: 8.1, color: C.muted })
   })
   addText(slide, '协作规则：功能分支开发 -> 构建验证 -> Pull Request -> 至少一人审查 -> 合并 main', 1.0, 5.72, 11.2, 0.28, { fontSize: 12, color: C.muted, align: 'center' })
 }

@@ -58,16 +58,17 @@ src/
 
 路由入口集中在 `src/router/index.ts`。业务数据目前保存在 Pinia store 中，刷新页面会恢复初始 mock 数据；接入后端时，应优先将 store 中的读写逻辑替换为 API 调用，保持页面组件只负责展示和交互。
 
-## 四人协作建议
+## 五人协作建议
 
 以下分工按现有模块划分，尽量减少同一文件的并发修改：
 
 | 角色 | 负责范围 | 主要文件 |
 | --- | --- | --- |
-| 组员 A | 行情与标的详情 | `views/MarketView.vue`、`views/StockDetailView.vue`、`stores/market.ts`、`components/KLineChart.vue` |
-| 组员 B | 模拟交易与个人资产 | `views/TradeView.vue`、`views/ProfileView.vue`、`stores/trade.ts`、`stores/user.ts` |
-| 组员 C | 评教、任务和排行榜 | `views/EvaluationView.vue`、`views/TaskView.vue`、`views/RankingView.vue`、对应 store 与趋势图组件 |
-| 组员 D | 管理端、导航、路由和集成 | `views/AdminView.vue`、`components/Navbar.vue`、`router/`、`types/`、全局样式与联调 |
+| 钟森翔 | 行情与标的详情 | `views/MarketView.vue`、`views/StockDetailView.vue`、`stores/market.ts`、`components/KLineChart.vue` |
+| 周金淼 | 模拟交易与个人资产 | `views/TradeView.vue`、`views/ProfileView.vue`、`stores/trade.ts`、`stores/user.ts` |
+| 张善言 | 签到评教与任务激励 | `views/EvaluationView.vue`、`views/TaskView.vue`、`stores/evaluation.ts`、`stores/task.ts`、`components/RatingTrendChart.vue` |
+| 王溢诚 | 排行榜与管理端 | `views/RankingView.vue`、`views/AdminView.vue`、`stores/ranking.ts` |
+| 张宏瑜（组长） | 项目统筹、文档、导航路由与集成验收 | `components/Navbar.vue`、`router/`、`types/`、全局样式、README、联调与发布材料 |
 
 涉及共享类型、初始数据、路由或全局样式时，先在组内同步，避免同时修改 `src/types/index.ts`、`src/mock/initialData.ts`、`src/router/index.ts` 和 `src/style.css`。
 
