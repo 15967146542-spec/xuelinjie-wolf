@@ -14,6 +14,7 @@ import { useTaskStore } from './task'
 export const useEvaluationStore = defineStore('evaluation', () => {
   const userStore = useUserStore()
   const marketStore = useMarketStore()
+  const taskStore = useTaskStore()
 
   const courses = ref<CourseSession[]>([...initialCourses])
   const evaluations = ref<EvaluationItem[]>([...initialEvaluations])

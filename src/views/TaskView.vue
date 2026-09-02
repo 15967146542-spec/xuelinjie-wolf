@@ -11,9 +11,7 @@ import {
   MessageSquareText,
   TrendingUp,
   UserPlus,
-  Coins,
-  History,
-  Sparkles
+  History
 } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 
