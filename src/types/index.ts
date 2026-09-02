@@ -108,16 +108,25 @@ export interface EvaluationItem {
   anonymous: boolean
 }
 
+/** 任务触发事件：将具体业务行为与任务进度解耦，便于 store 侧联动推进 */
+export type TaskTrigger =
+  | 'DAILY_LOGIN'
+  | 'CLASS_SIGNIN'
+  | 'COURSE_EVALUATION'
+  | 'MAKE_TRADE'
+
 export interface TaskItem {
   id: number
   title: string
   description: string
   reward: number
-  type: 'DAILY' | 'SEMESTER' | 'ACHIEVEMENT'
+  type: 'DAILY' | 'SEMESTER' | 'ACHIEVEMENT' | 'GROWTH'
   current: number
   target: number
   isClaimed: boolean
   icon: string
+  /** 推进该任务进度的事件；仅 DAILY 任务需要配置 */
+  trigger?: TaskTrigger
 }
 
 export interface AssetLedger {
