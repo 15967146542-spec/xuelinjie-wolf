@@ -1,24 +1,31 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useEvaluationStore } from '@/stores/evaluation'
 import { useUserStore } from '@/stores/user'
+import { SIGNIN_REWARD, EVALUATION_REWARD } from '@/rules'
 import {
   MessageSquareCheck,
   QrCode,
   Sparkles,
-  ShieldAlert,
   Clock,
   MapPin,
   CheckCircle2,
   Info,
   Lock
 } from 'lucide-vue-next'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
+const route = useRoute()
 const evaluationStore = useEvaluationStore()
 const userStore = useUserStore()
 
-const selectedSessionId = ref<string>(evaluationStore.courses[0]?.id || '')
+const requestedSessionId = route.query.session as string | undefined
+const selectedSessionId = ref<string>(
+  evaluationStore.courses.some((c) => c.id === requestedSessionId)
+    ? (requestedSessionId as string)
+    : (evaluationStore.courses[0]?.id || '')
+)
 const rating = ref<number>(5)
 const hoverRating = ref<number>(0)
 const selectedTags = ref<string[]>(['板书天花板', '讲题通透'])
@@ -51,12 +58,26 @@ function toggleTag(tag: string) {
 }
 
 function handleSignIn(sessionId: string) {
-  const res = evaluationStore.signInCourse(sessionId)
-  if (res.success) {
-    ElMessage.success(res.message)
-  } else {
-    ElMessage.warning(res.message)
-  }
+  ElMessageBox.confirm(
+    `将完成「${evaluationStore.courses.find((c) => c.id === sessionId)?.courseName || '本课'}」的模拟课堂扫码打卡，确认签到？签到成功可获 +${SIGNIN_REWARD} 学币，并推进每日任务进度。`,
+    '模拟课堂扫码签到',
+    {
+      confirmButtonText: '确认签到',
+      cancelButtonText: '再想想',
+      type: 'info'
+    }
+  )
+    .then(() => {
+      const res = evaluationStore.signInCourse(sessionId)
+      if (res.success) {
+        ElMessage.success(res.message)
+      } else {
+        ElMessage.warning(res.message)
+      }
+    })
+    .catch(() => {
+      // 用户取消签到，不做任何处理
+    })
 }
 
 function handleSubmitEvaluation() {
@@ -111,8 +132,8 @@ function handleSubmitEvaluation() {
       <div class="banner-right">
         <div class="reward-rule-box">
           <div class="rule-title">评教激励机制</div>
-          <div class="rule-line"><span>到课签到打卡：</span><strong>+100 学币/节</strong></div>
-          <div class="rule-line"><span>完成客观评教：</span><strong>+80 学币/次</strong></div>
+          <div class="rule-line"><span>到课签到打卡：</span><strong>+{{ SIGNIN_REWARD }} 学币/节</strong></div>
+          <div class="rule-line"><span>完成客观评教：</span><strong>+{{ EVALUATION_REWARD }} 学币/次</strong></div>
           <div class="rule-line"><span>评价因子权重：</span><strong class="text-blue">α = 0.02 (次日生效)</strong></div>
         </div>
       </div>
@@ -156,12 +177,12 @@ function handleSubmitEvaluation() {
                 class="signin-action-btn"
                 @click.stop="handleSignIn(session.id)"
               >
-                <QrCode :size="14" /> 模拟课堂扫码签到 (+100)
+                <QrCode :size="14" /> 模拟课堂扫码签到 (+{{ SIGNIN_REWARD }})
               </button>
 
               <!-- Evaluation status -->
               <div v-if="session.isEvaluated" class="status-tag evaluated">
-                <Sparkles :size="14" /> 已完成评教 (+80)
+                <Sparkles :size="14" /> 已完成评教 (+{{ EVALUATION_REWARD }})
               </div>
               <div v-else class="status-tag pending">
                 待评教
@@ -256,7 +277,7 @@ function handleSubmitEvaluation() {
               class="submit-eval-btn"
               @click="handleSubmitEvaluation"
             >
-              提交客观评价 (+80学币)
+              提交客观评价 (+{{ EVALUATION_REWARD }}学币)
             </el-button>
           </div>
         </div>

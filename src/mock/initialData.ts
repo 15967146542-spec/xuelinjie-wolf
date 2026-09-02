@@ -368,7 +368,8 @@ export const initialTasks: TaskItem[] = [
     current: 1,
     target: 1,
     isClaimed: true,
-    icon: 'CalendarCheck'
+    icon: 'CalendarCheck',
+    trigger: 'DAILY_LOGIN'
   },
   {
     id: 2,
@@ -377,9 +378,10 @@ export const initialTasks: TaskItem[] = [
     reward: 100,
     type: 'DAILY',
     current: 2,
-    target: 1,
+    target: 3,
     isClaimed: false,
-    icon: 'QrCode'
+    icon: 'QrCode',
+    trigger: 'CLASS_SIGNIN'
   },
   {
     id: 3,
@@ -388,9 +390,10 @@ export const initialTasks: TaskItem[] = [
     reward: 80,
     type: 'DAILY',
     current: 1,
-    target: 1,
+    target: 2,
     isClaimed: false,
-    icon: 'MessageSquareText'
+    icon: 'MessageSquareText',
+    trigger: 'COURSE_EVALUATION'
   },
   {
     id: 4,
@@ -398,10 +401,11 @@ export const initialTasks: TaskItem[] = [
     description: '在模拟交易盘中下单买入或卖出任意教师股票 1 笔',
     reward: 30,
     type: 'DAILY',
-    current: 1,
+    current: 0,
     target: 1,
     isClaimed: false,
-    icon: 'TrendingUp'
+    icon: 'TrendingUp',
+    trigger: 'MAKE_TRADE'
   },
   {
     id: 5,
