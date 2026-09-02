@@ -1,4 +1,36 @@
 export type UserRole = 'STUDENT' | 'EXTERNAL' | 'TEACHER' | 'ADMIN'
+export type TradeSide = 'BUY' | 'SELL'
+export type MarketTab = 'ALL' | 'WATCHLIST' | 'GAINERS' | 'HIGH_RATING'
+export type MarketSortBy = 'ratio' | 'price' | 'volume' | 'rating'
+export type SortOrder = 'asc' | 'desc'
+export type AsyncStatus = 'idle' | 'loading' | 'success' | 'error'
+
+export interface ActionResult {
+  success: boolean
+  message: string
+}
+
+export interface NextDayProjection {
+  evalFactor: number
+  fundFactor: number
+  macroImpact: number
+  noise: number
+  deltaPct: number
+  nextPrice: number
+}
+
+export interface MarketFilterState {
+  searchQuery: string
+  activeTab: MarketTab
+  sortBy: MarketSortBy
+  sortOrder: SortOrder
+}
+
+export interface StockDetailTradeDraft {
+  side: TradeSide
+  shares: number
+  submitting: boolean
+}
 
 export interface TeacherStock {
   code: string
@@ -52,7 +84,7 @@ export interface Order {
   orderNo: string
   stockCode: string
   stockName: string
-  side: 'BUY' | 'SELL'
+  side: TradeSide
   price: number
   shares: number
   amount: number

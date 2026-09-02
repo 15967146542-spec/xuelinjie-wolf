@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Order, Position } from '@/types'
+import type { ActionResult, Order, Position, TradeSide } from '@/types'
 import { initialOrders, initialPositions } from '@/mock/initialData'
 import { useUserStore } from './user'
 import { useMarketStore } from './market'
@@ -55,7 +55,7 @@ export const useTradeStore = defineStore('trade', () => {
   }
 
   // Buy order execution
-  function executeBuy(stockCode: string, shares: number): { success: boolean; message: string } {
+  function executeBuy(stockCode: string, shares: number): ActionResult {
     if (shares <= 0) return { success: false, message: '买入股数必须大于0' }
 
     const stock = marketStore.stocks.find((s) => s.code === stockCode)
@@ -103,7 +103,7 @@ export const useTradeStore = defineStore('trade', () => {
       orderNo,
       stockCode,
       stockName: stock.name,
-      side: 'BUY',
+  side: 'BUY' as TradeSide,
       price,
       shares,
       amount: tradeAmount,
@@ -157,7 +157,7 @@ export const useTradeStore = defineStore('trade', () => {
   }
 
   // Sell order execution
-  function executeSell(stockCode: string, shares: number): { success: boolean; message: string } {
+  function executeSell(stockCode: string, shares: number): ActionResult {
     if (shares <= 0) return { success: false, message: '卖出股数必须大于0' }
 
     const stock = marketStore.stocks.find((s) => s.code === stockCode)
@@ -189,7 +189,7 @@ export const useTradeStore = defineStore('trade', () => {
       orderNo,
       stockCode,
       stockName: stock.name,
-      side: 'SELL',
+  side: 'SELL' as TradeSide,
       price,
       shares,
       amount: tradeAmount,
