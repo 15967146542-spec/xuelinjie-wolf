@@ -1,0 +1,132 @@
+Reasonix 对话记录（导出）
+日期：2026-09-02
+成员：24320218（评教与任务激励模块负责人，署名如需补全请自行添加）
+工具：Reasonix（本地智能体）
+项目：学林街之狼（24320230 课程仓库，工作分支 24320218）
+
+说明：本文件为当天会话要点导出版，按“用户请求 → 执行/答复要点 → 结果/决策”整理，便于日报归档、复盘与团队同步。当天完整动作均以代码改动、构建与命令记录为准。
+
+================================================================
+记录 1：项目阅读与 5 天开发计划
+================================================================
+
+用户提示：
+先简单阅读项目，说明自己负责签到评教、任务激励、评教趋势 | 评价页、任务页、评价与任务 store、趋势图组件，要一份 5 天开发计划。
+
+答复要点：
+- 已核对技术栈（Vue 3 + TS + Vite + Pinia + Element Plus + ECharts）与分工（与开发说明.md 中张善言模块一致）。
+- 指出原型功能已完成（todos R1-R10），剩余 R11-R17（接口契约、权限、持久化、单测、状态完善、图表体积、交付材料）。
+- 经确认选择“混合冲刺”路线：
+  Day1 规则收敛与缺口盘点；Day2 签到/评教↔任务联动与每日重置；Day3 趋势图组件增强；
+  Day4 状态完善+接口契约+规则单测；Day5 联调回归与文档归档。
+
+执行结果：
+- 输出完整 5 天计划（目标/涉及文件/验收标准/风险协作点）。
+
+================================================================
+记录 2：执行 Day1 + Day2
+================================================================
+
+用户提示：
+现在执行 Day1 和 Day2 的内容。
+
+执行要点：
+1. 基线核验：git 状态干净、分支 24320218；node_modules 缺失导致 build 受阻。
+2. 新增 src/rules.ts：收敛 SIGNIN_REWARD=100 / EVALUATION_REWARD=80 / RATING_WINDOW=5 / NEUTRAL_RATING=3.0 /
+   EMA 权重 0.95/0.05 / α=0.02，及 clampRating / applyRatingAggregation / calcRatingFactorEarning 纯函数（无 Vue 依赖）。
+3. stores/evaluation.ts 改用规则模块并接入任务联动：
+   - 签到成功 → taskStore.advanceTaskByTrigger('CLASS_SIGNIN')；
+   - 提交评教成功 → advanceTaskByTrigger('COURSE_EVALUATION')。
+4. stores/task.ts：新增 advanceTaskByTrigger（仅推进未领取的 DAILY 任务）、ensureDailyReset
+   （localStorage 记录最近结算日期，跨天 DAILY 归零，首次打开保留演示数据）。
+5. 类型与数据对齐（types/index.ts 为共享文件，已记录待组长同步）：
+   - TaskItem.type 补充数据中实际使用的 'GROWTH'（原缺失，Vite 不查类型故未暴露）；
+   - 新增 TaskTrigger 与 TaskItem.trigger 可选字段；
+   - initialData 为 4 个每日任务标注 trigger，并校准进度语义（打卡 2/3、评价 1/2、交易 0/1 与课程签到状态自洽）。
+6. 页面交互：EvaluationView 签到加二次确认、支持 ?session= 定位课程、奖励文案改常量插值；
+   TaskView 对未达标且带 trigger 的任务显示“去完成”按钮并跳转 /evaluation 或 /trade。
+7. 产出 daily/24320230/D2.md：含 7 条缺口清单、验证情况与明日计划。
+
+关键决策（用户选择）：
+- 5 天目标采用“混合冲刺”。
+- npm 依赖无法安装时选择“暂停验证，接受现状”。
+- 改动暂不提交 Git，保留工作区。
+
+验证：
+- rules.ts 经 Node 直跑 10+ 条断言全部通过（EMA 精度、窗口截断、保留两位、因子公式）。
+- 因网络问题当时无法 npm install，build 与浏览器手测延后。
+
+================================================================
+记录 3：网络问题根因诊断与修复
+================================================================
+
+用户提示：
+研究一下待做的内容，为什么网络有问题。
+
+诊断结论：
+- 现象：npm install 从官方源与 npmmirror 均 ECONNREFUSED，重试后 npm 自身崩溃（Exit handler never called!）。
+- 根因：npm config 的 proxy / https-proxy 指向 http://127.0.0.1:7890（Clash/v2rayN 类代理默认端口），
+  而该代理软件未运行，TCP 探测 7890 返回 ECONNREFUSED；Node fetch 直连 npmjs/gitee/npmmirror/baidu 全部 200，外网本身通畅。
+- 结论：并非网络故障，而是 npm 流量全走了未运行的本地代理。
+
+修复（用户选择“清掉代理配置并重装依赖”）：
+- npm.cmd config delete proxy / https-proxy；
+- npm.cmd install 12s 完成（68 packages）；
+- npm.cmd run build 通过（33s），Day1+Day2 改动全部编译成功；
+- 产物大 chunk 告警（KLineChart > 500kB）为既有 ECharts 全量引入问题，归 R16。
+
+================================================================
+记录 4：本地运行预览
+================================================================
+
+用户提示：
+在本地跑一下整个项目，让我看看效果。
+
+执行结果：
+- dev server 以后台任务启动：Vite v8.2.2，http://localhost:5173/；
+- GET / 返回 200，页面标题“学林街之狼”；
+- 给出体验链路：评价页签到（二次确认）→ 提交评教 → 任务中心看 2/3、1/2 进度与“去完成”跳转 → 领取奖励。
+
+================================================================
+记录 5：机制讲解问答
+================================================================
+
+1) 为什么把金额/聚合公式抽到 src/rules.ts？
+答复要点：规则与流程解耦、单一来源；纯函数可直接单测（本机无法起浏览器时仍能验证）；
+命名即文档；为 R13/R14 预留复用边界。边界：仅“被多处消费或需验证的算法”才抽，UI 细节不抽。
+
+2) 改签到奖励或聚合窗口要动几个文件？
+答复要点（基于 grep 全量引用核对）：
+- 改奖励金额：真·一处（rules.ts），store 发钱/提示文案/页面卡片/按钮/弹窗全部自动联动（15 处引用均读常量）；
+  每日任务奖励是 initialData 独立配置，不受影响。
+- 改聚合窗口：数据层一处自动（applyRatingAggregation 用 RATING_WINDOW）；
+  但展示层仍有硬编码尾巴（RatingTrendChart 的“前第5讲”标签、slice(-5)、中性线 3.0，以及页面“近 5 讲”文案），
+  属 Day3 组件增强范围，未收口前不能宣称“只动一处”。
+
+3) 评教对股价的影响到底怎么算？
+答复要点：
+- 分两步：提交评教立即更新聚合分（last5AvgRating/recentRatings/rating），管理端“收盘结算”时因子才转为次日价格。
+- 价格公式（market.ts calculateNextDayProjection）：
+  Δ = E(评教) + F(资金) + M(宏观) + N(噪声)，E = α×(last5AvgRating−3)/2，截断 ±10%；
+  次日价 = 现价×(1+Δ)。α=0.02、β=0.10、γ=0.005、σ=0.015。
+- 示例：last5AvgRating=4.85 → E≈+1.85%（结算前还要叠加 F/M/N）。
+- 单条评价仅占近 5 讲窗口 1/5，天然防刷分。
+- 两点提醒：market.ts:61 内联公式与 rules.ts calcRatingFactorEarning 属两处拷贝（数值一致但 source 不同，收口需与
+  钟森翔对齐，因 market.ts 是他的模块）；“次日生效”依赖管理员手动点结算且数据不持久化（刷新即复位）。
+
+================================================================
+当天成果与状态
+================================================================
+
+- src/rules.ts 新增（规则单一来源）；evaluation/task store 改造；types/initialData 对齐；
+  EvaluationView/TaskView 交互增强；daily/24320230/D2.md 日报。
+- 网络根因定位并修复（npm 代理指向未运行的 127.0.0.1:7890）。
+- npm install / npm run build 通过；dev server 可本地预览。
+- 待办：浏览器全链路手测、vue-tsc 类型检查（项目未内置）、改动提交 Git（用户选择暂不提交）、
+  趋势图组件硬编码收口（Day3）、market.ts 公式复用 rules.ts（需与钟森翔对齐）。
+
+当天使用的主要命令：
+- npm.cmd config get proxy / npm.cmd config delete proxy / https-proxy
+- npm.cmd install / npm.cmd run build / npm.cmd run dev
+- node --input-type=module -e "import('./src/rules.ts')..."（规则断言）
+- git log / git status / git diff（核验与自查）
