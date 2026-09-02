@@ -8,7 +8,6 @@ import {
   MessageSquareCheck,
   QrCode,
   Sparkles,
-  ShieldAlert,
   Clock,
   MapPin,
   CheckCircle2,
