@@ -5,6 +5,7 @@ import { useMarketStore } from '@/stores/market'
 import { useTradeStore } from '@/stores/trade'
 import { useUserStore } from '@/stores/user'
 import { useEvaluationStore } from '@/stores/evaluation'
+import type { TradeSide } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import RatingTrendChart from '@/components/RatingTrendChart.vue'
 import {

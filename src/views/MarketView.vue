@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
 import { useTradeStore } from '@/stores/trade'
+import type { MarketSortBy, MarketTab, SortOrder, TeacherStock } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import {
   Search,
