@@ -54,7 +54,7 @@ function handleBuyMonthCard() {
         <div class="u-info">
           <div class="u-name-line">
             <h2 class="u-title">{{ userStore.user.name }}</h2>
-            <span class="honor-badge">长电股神</span>
+            <span class="honor-badge">杭电股神</span>
             <span class="role-badge">{{ userStore.roleText }}</span>
           </div>
           <p class="u-sub-line">

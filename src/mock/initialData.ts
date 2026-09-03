@@ -441,7 +441,7 @@ export const initialRankings: RankingUser[] = [
     totalAsset: 38450,
     dailyProfitRatio: 6.84,
     weeklyProfitRatio: 24.50,
-    title: '长电股神',
+    title: '杭电股神',
     topHolding: '计网赵 (1005)'
   },
   {
@@ -550,7 +550,7 @@ export const initialDragonTiger: DragonTigerItem[] = [
 export const initialWeeklyTitles: WeeklyTitle[] = [
   {
     id: 'title-1',
-    name: '长电股神',
+    name: '杭电股神',
     description: '周结算校内总资产排行榜第 1 名专属荣耀',
     holder: '林予 (Wolf-07)',
     holderRole: '校内学生',
