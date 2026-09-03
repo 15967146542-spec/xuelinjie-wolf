@@ -471,3 +471,4 @@ function getRankBadgeClass(rank: number) {
   .titles-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
+
