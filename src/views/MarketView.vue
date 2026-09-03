@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
-import { useTradeStore } from '@/stores/trade'
 import type { MarketSortBy, MarketTab, SortOrder, TeacherStock } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import {
@@ -24,6 +23,13 @@ const searchQuery = ref('')
 const activeTab = ref<MarketTab>('ALL')
 const sortBy = ref<MarketSortBy>('ratio')
 const sortOrder = ref<SortOrder>('desc')
+
+const sortOptions: Array<{ label: string; value: MarketSortBy }> = [
+  { label: '涨跌幅', value: 'ratio' },
+  { label: '最新价', value: 'price' },
+  { label: '成交量', value: 'volume' },
+  { label: '评分', value: 'rating' }
+]
 
 const filteredStocks = computed(() => {
   let list = [...marketStore.stocks]
@@ -71,6 +77,21 @@ const totalAmountWan = computed(() => {
   return (totalAmount / 10000).toFixed(1)
 })
 
+const isLoading = computed(() => marketStore.marketStatus === 'loading' || marketStore.marketStatus === 'idle')
+const isError = computed(() => marketStore.marketStatus === 'error')
+const isSourceEmpty = computed(() => marketStore.marketStatus === 'success' && marketStore.stocks.length === 0)
+const isResultEmpty = computed(
+  () => marketStore.marketStatus === 'success' && marketStore.stocks.length > 0 && filteredStocks.value.length === 0
+)
+
+function toggleSortOrder() {
+  sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
+}
+
+async function reloadMarket() {
+  await marketStore.bootstrapMarket(true)
+}
+
 function getRatio(stock: { currentPrice: number; prevClose: number }) {
   const val = ((stock.currentPrice - stock.prevClose) / stock.prevClose) * 100
   return Number(val.toFixed(2))
@@ -90,6 +111,10 @@ function toggleFav(code: string, e: Event) {
   marketStore.toggleWatchlist(code)
   ElMessage.success('自选股状态已更新')
 }
+
+onMounted(async () => {
+  await marketStore.bootstrapMarket()
+})
 </script>
 
 <template>
@@ -162,24 +187,61 @@ function toggleFav(code: string, e: Event) {
             </button>
           </div>
 
-          <div class="search-box">
-            <el-input
-              v-model="searchQuery"
-              placeholder="搜索股票代码 / 教师 / 课程 / 院系..."
-              clearable
-              size="default"
-              class="cyber-input"
-            >
-              <template #prefix>
-                <Search :size="15" class="search-icon" />
-              </template>
-            </el-input>
+          <div class="toolbar-right">
+            <div class="sort-box">
+              <el-select v-model="sortBy" size="small" class="sort-select">
+                <el-option
+                  v-for="item in sortOptions"
+                  :key="item.value"
+                  :label="`按${item.label}`"
+                  :value="item.value"
+                />
+              </el-select>
+              <el-button size="small" text class="sort-order-btn" @click="toggleSortOrder">
+                {{ sortOrder === 'desc' ? '降序' : '升序' }}
+              </el-button>
+            </div>
+
+            <div class="search-box">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜索股票代码 / 教师 / 课程 / 院系..."
+                clearable
+                size="default"
+                class="cyber-input"
+              >
+                <template #prefix>
+                  <Search :size="15" class="search-icon" />
+                </template>
+              </el-input>
+            </div>
           </div>
         </div>
 
         <!-- Stock Table -->
         <div class="stock-list-container">
-          <table class="cyber-table">
+          <div v-if="isLoading" class="state-panel">
+            <el-skeleton :rows="4" animated />
+            <p class="state-text">正在加载行情数据...</p>
+          </div>
+
+          <div v-else-if="isError" class="state-panel">
+            <p class="state-title">行情加载失败</p>
+            <p class="state-text">{{ marketStore.marketError || '请检查数据源后重试。' }}</p>
+            <el-button type="primary" size="small" @click="reloadMarket">重新加载</el-button>
+          </div>
+
+          <div v-else-if="isSourceEmpty" class="state-panel">
+            <p class="state-title">暂无可展示标的</p>
+            <p class="state-text">请先补充 `mock` 数据，或在管理端触发初始化。</p>
+          </div>
+
+          <div v-else-if="isResultEmpty" class="state-panel">
+            <p class="state-title">没有匹配结果</p>
+            <p class="state-text">请调整筛选条件或清空搜索关键词后重试。</p>
+          </div>
+
+          <table v-else class="cyber-table">
             <thead>
               <tr>
                 <th width="40">自选</th>
@@ -502,6 +564,51 @@ function toggleFav(code: string, e: Event) {
   width: 260px;
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-select {
+  width: 120px;
+}
+
+.sort-order-btn {
+  color: #94a3b8;
+}
+
+.state-panel {
+  min-height: 220px;
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+}
+
+.state-title {
+  margin: 0;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.state-text {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
 .stock-list-container {
   overflow-x: auto;
 }
@@ -781,6 +888,11 @@ function toggleFav(code: string, e: Event) {
   }
   .market-layout {
     grid-template-columns: 1fr;
+  }
+  .toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
   }
 }
 </style>

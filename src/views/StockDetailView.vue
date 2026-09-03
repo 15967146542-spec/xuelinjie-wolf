@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
 import { useTradeStore } from '@/stores/trade'
 import { useUserStore } from '@/stores/user'
 import { useEvaluationStore } from '@/stores/evaluation'
-import type { TradeSide } from '@/types'
+import type { NextDayProjection, Position, TradeSide, TeacherStock } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
 import RatingTrendChart from '@/components/RatingTrendChart.vue'
 import {
@@ -26,34 +26,94 @@ const tradeStore = useTradeStore()
 const userStore = useUserStore()
 const evaluationStore = useEvaluationStore()
 
-const stockCode = computed(() => (route.params.code as string) || marketStore.selectedCode)
-const stock = computed(() => marketStore.stocks.find((s) => s.code === stockCode.value) || marketStore.stocks[0])
+const stockCode = computed(() => {
+  const code = route.params.code
+  return typeof code === 'string' ? code : ''
+})
+
+const isLoading = computed(() => marketStore.marketStatus === 'loading' || marketStore.marketStatus === 'idle')
+const isError = computed(() => marketStore.marketStatus === 'error')
+
+const stock = computed<TeacherStock | null>(() => {
+  if (!marketStore.hasStocks) {
+    return null
+  }
+  if (!stockCode.value) {
+    return marketStore.selectedStock
+  }
+  return marketStore.getStockByCode(stockCode.value) || null
+})
+
+const isNotFound = computed(() => {
+  return marketStore.marketStatus === 'success' && Boolean(stockCode.value) && !stock.value
+})
+
+const kLineData = computed(() => {
+  if (!stock.value) return []
+  return marketStore.getKLineByCode(stock.value.code)
+})
+
+const ratingTrend = computed(() => {
+  if (!stock.value) {
+    return {
+      ratings: [],
+      last5Avg: 0
+    }
+  }
+  return marketStore.getRatingTrendByCode(stock.value.code)
+})
 
 const quickTradeSide = ref<TradeSide>('BUY')
 const tradeShares = ref<number>(10)
 const isSubmitting = ref(false)
 
 // Factor calculation breakdown
-const projection = computed(() => marketStore.calculateNextDayProjection(stock.value))
+const projection = computed<NextDayProjection>(() => {
+  if (!stock.value) {
+    return {
+      evalFactor: 0,
+      fundFactor: 0,
+      macroImpact: 0,
+      noise: 0,
+      deltaPct: 0,
+      nextPrice: 0
+    }
+  }
+  return marketStore.calculateNextDayProjection(stock.value)
+})
 
 // Existing audited reviews for this stock
 const stockReviews = computed(() => {
+  if (!stock.value) {
+    return []
+  }
+  const currentCode = stock.value.code
   return evaluationStore.evaluations.filter(
-    (e) => e.stockCode === stock.value.code && e.status === 'APPROVED'
+    (e) => e.stockCode === currentCode && e.status === 'APPROVED'
   )
 })
 
 // Current user holding of this stock
-const userHolding = computed(() => {
-  return tradeStore.positions.find((p) => p.stockCode === stock.value.code)
+const userHolding = computed<Position | undefined>(() => {
+  if (!stock.value) {
+    return undefined
+  }
+  const currentCode = stock.value.code
+  return tradeStore.positions.find((p) => p.stockCode === currentCode)
 })
 
 function getRatio() {
+  if (!stock.value) return 0
   const val = ((stock.value.currentPrice - stock.value.prevClose) / stock.value.prevClose) * 100
   return Number(val.toFixed(2))
 }
 
 function handleTrade() {
+  if (!stock.value) {
+    ElMessage.error('当前标的不存在，无法交易')
+    return
+  }
+
   if (!tradeShares.value || tradeShares.value <= 0) {
     ElMessage.warning('请输入有效交易股数')
     return
@@ -79,6 +139,11 @@ function handleTrade() {
 }
 
 function setPresetPercent(pct: number) {
+  if (!stock.value) {
+    tradeShares.value = 1
+    return
+  }
+
   if (quickTradeSide.value === 'BUY') {
     const maxAffordable = Math.floor(userStore.user.balance / stock.value.currentPrice)
     tradeShares.value = Math.max(1, Math.floor(maxAffordable * (pct / 100)))
@@ -88,15 +153,46 @@ function setPresetPercent(pct: number) {
   }
 }
 
-onMounted(() => {
+async function reloadDetail() {
+  await marketStore.bootstrapMarket(true)
+}
+
+function syncSelectedStockByRoute() {
   if (stock.value) {
     marketStore.selectStock(stock.value.code)
   }
+}
+
+watch(stockCode, () => {
+  syncSelectedStockByRoute()
+})
+
+onMounted(async () => {
+  await marketStore.bootstrapMarket()
+  syncSelectedStockByRoute()
 })
 </script>
 
 <template>
   <div class="stock-detail-view">
+    <div v-if="isLoading" class="state-panel">
+      <el-skeleton :rows="5" animated />
+      <p class="state-text">正在加载标的详情数据...</p>
+    </div>
+
+    <div v-else-if="isError" class="state-panel">
+      <p class="state-title">详情加载失败</p>
+      <p class="state-text">{{ marketStore.marketError || '请稍后重试。' }}</p>
+      <el-button type="primary" size="small" @click="reloadDetail">重新加载</el-button>
+    </div>
+
+    <div v-else-if="isNotFound" class="state-panel">
+      <p class="state-title">未找到该标的</p>
+      <p class="state-text">当前路由参数无效，请返回行情页重新选择。</p>
+      <el-button type="primary" size="small" @click="router.push('/market')">返回行情页</el-button>
+    </div>
+
+    <template v-else-if="stock">
     <!-- Top Back Bar & Header -->
     <div class="header-card">
       <div class="header-top">
@@ -193,7 +289,7 @@ onMounted(() => {
           </div>
           <div class="kline-wrapper">
             <KLineChart
-              :data="marketStore.klineCache[stock.code] || []"
+              :data="kLineData"
               :stock-name="stock.name"
             />
           </div>
@@ -285,7 +381,7 @@ onMounted(() => {
           </div>
 
           <div class="trend-chart-box">
-            <RatingTrendChart :ratings="stock.recentRatings" :last5-avg="stock.last5AvgRating" />
+            <RatingTrendChart :ratings="ratingTrend.ratings" :last5-avg="ratingTrend.last5Avg" />
           </div>
 
           <!-- Audited Comments Stream -->
@@ -462,6 +558,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -470,6 +567,31 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.state-panel {
+  min-height: 280px;
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+}
+
+.state-title {
+  margin: 0;
+  color: #f1f5f9;
+  font-weight: 700;
+}
+
+.state-text {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
 }
 
 .header-card {

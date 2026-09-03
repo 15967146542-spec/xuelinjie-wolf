@@ -1,0 +1,44 @@
+【可复用 Prompt｜2026-09-03】
+
+你是资深前端工程师，请在 Vue3 + TypeScript + Pinia 项目中完成“行情页核心功能 + 标的详情页核心内容”开发，并保证可构建通过。
+
+一、目标
+1) 完成 `src/views/MarketView.vue` 的核心闭环：
+   - 列表渲染
+   - 搜索过滤
+   - 排序（维度切换 + 升降序）
+   - 点击行选中
+   - 跳转详情页
+   - loading/success/empty/error 四态展示
+2) 完成 `src/views/StockDetailView.vue` 的核心内容：
+   - 路由参数驱动读取标的
+   - 标的基础信息、K 线、趋势区稳定展示
+   - 无效标的兜底（not found）
+   - 参数变化联动刷新，保证路由与页面一致
+3) 在 `src/stores/market.ts` 补齐状态与适配：
+   - `marketStatus`、`marketError`
+   - `bootstrapMarket(forceRefresh?)`
+   - `getStockByCode` / `getKLineByCode` / `getRatingTrendByCode`
+
+二、工程约束
+1) 保持最小改动，不重构无关文件。
+2) 类型优先，避免 `any`；复用 `src/types/index.ts` 现有类型。
+3) 组件只消费标准化 props，数据转换放在 store/适配层。
+4) 页面态（搜索词、排序、loading 控件）留在 view；领域态留在 store。
+
+三、验收标准
+1) 行情页可在四态间切换（包括无数据与筛选无结果）。
+2) 详情页在非法 `code` 参数时有明确兜底和返回入口。
+3) 路由切换不同标的时，详情内容与图表正确联动。
+4) 执行 `npm run build` 成功。
+5) 输出改动文件清单与每个文件的一句话说明。
+
+四、建议执行顺序
+1) 先改 `market` store，建立统一数据入口与状态。
+2) 再改 `MarketView`，接入四态与排序交互。
+3) 再改 `StockDetailView`，接入路由驱动和兜底态。
+4) 最后执行构建验证并汇总。
+
+五、输出格式
+- 列出：完成项、改动文件、验证结果（Build/Lint-Typecheck/Tests）。
+- 若 Tests 未配置，明确说明“未配置测试脚本”。

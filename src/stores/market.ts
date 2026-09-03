@@ -1,21 +1,49 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { TeacherStock, KLinePoint, MacroFactor, NextDayProjection } from '@/types'
+import type { AsyncStatus, TeacherStock, KLinePoint, MacroFactor, NextDayProjection } from '@/types'
 import { initialStocks, initialMacroFactor, generateKLineData } from '@/mock/initialData'
 
 export const useMarketStore = defineStore('market', () => {
-  const stocks = ref<TeacherStock[]>([...initialStocks])
+  const stocks = ref<TeacherStock[]>([])
   const selectedCode = ref<string>('1005') // Default to 计网赵
   const macroFactor = ref<MacroFactor>({ ...initialMacroFactor })
   const klineCache = ref<Record<string, KLinePoint[]>>({})
+  const marketStatus = ref<AsyncStatus>('idle')
+  const marketError = ref<string>('')
 
-  // Initialize K-lines
-  stocks.value.forEach((stock) => {
-    klineCache.value[stock.code] = generateKLineData(stock.currentPrice, 35)
-  })
+  function rebuildKlineCache(targetStocks: TeacherStock[]) {
+    const cache: Record<string, KLinePoint[]> = {}
+    targetStocks.forEach((stock) => {
+      cache[stock.code] = generateKLineData(stock.currentPrice, 35)
+    })
+    klineCache.value = cache
+  }
+
+  async function bootstrapMarket(forceRefresh = false) {
+    if (!forceRefresh && (marketStatus.value === 'loading' || marketStatus.value === 'success')) {
+      return
+    }
+
+    marketStatus.value = 'loading'
+    marketError.value = ''
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 180))
+      stocks.value = initialStocks.map((item) => ({ ...item }))
+      rebuildKlineCache(stocks.value)
+      if (!stocks.value.find((s) => s.code === selectedCode.value)) {
+        selectedCode.value = stocks.value[0]?.code || ''
+      }
+      marketStatus.value = 'success'
+    } catch {
+      marketStatus.value = 'error'
+      marketError.value = '行情数据加载失败，请稍后重试。'
+    }
+  }
+
+  const hasStocks = computed(() => stocks.value.length > 0)
 
   const selectedStock = computed<TeacherStock>(() => {
-    return stocks.value.find((s) => s.code === selectedCode.value) || stocks.value[0]
+    return stocks.value.find((s) => s.code === selectedCode.value) || initialStocks[0]
   })
 
   const marketIndex = computed(() => {
@@ -40,6 +68,28 @@ export const useMarketStore = defineStore('market', () => {
       if (target) {
         klineCache.value[code] = generateKLineData(target.currentPrice, 35)
       }
+    }
+  }
+
+  function getStockByCode(code: string) {
+    return stocks.value.find((s) => s.code === code)
+  }
+
+  function getKLineByCode(code: string): KLinePoint[] {
+    return klineCache.value[code] || []
+  }
+
+  function getRatingTrendByCode(code: string) {
+    const target = getStockByCode(code)
+    if (!target) {
+      return {
+        ratings: [],
+        last5Avg: 0
+      }
+    }
+    return {
+      ratings: [...target.recentRatings],
+      last5Avg: target.last5AvgRating
     }
   }
 
@@ -126,11 +176,18 @@ export const useMarketStore = defineStore('market', () => {
     stocks,
     selectedCode,
     selectedStock,
+  hasStocks,
+  marketStatus,
+  marketError,
     macroFactor,
     marketIndex,
     indexChangePct,
     klineCache,
+  bootstrapMarket,
     selectStock,
+  getStockByCode,
+  getKLineByCode,
+  getRatingTrendByCode,
     toggleWatchlist,
     calculateNextDayProjection,
     settleNextTradingDay,
