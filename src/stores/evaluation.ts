@@ -10,6 +10,7 @@ import {
 import { useUserStore } from './user'
 import { useMarketStore } from './market'
 import { useTaskStore } from './task'
+import { matchScheduleEntry, type RawScheduleEntry } from '@/utils/scheduleImport'
 
 export const useEvaluationStore = defineStore('evaluation', () => {
   const userStore = useUserStore()
@@ -98,11 +99,42 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     }
   }
 
+  function importCourses(entries: RawScheduleEntry[]) {
+    const imported: CourseSession[] = []
+    const unmatched: string[] = []
+
+    for (const entry of entries) {
+      const stock = matchScheduleEntry(entry, marketStore.stocks)
+      if (!stock) {
+        unmatched.push(entry.courseName || entry.teacherName)
+        continue
+      }
+      const exists = courses.value.some((course) =>
+        course.courseName === entry.courseName && course.teacherName === entry.teacherName
+      )
+      if (exists) continue
+      imported.push({
+        id: `course-import-${Date.now()}-${imported.length}`,
+        courseName: entry.courseName,
+        teacherName: entry.teacherName,
+        stockCode: stock.code,
+        time: entry.time || '待补充',
+        room: entry.room || '待补充',
+        isSigned: false,
+        isEvaluated: false
+      })
+    }
+
+    courses.value.push(...imported)
+    return { imported: imported.length, skipped: entries.length - imported.length - unmatched.length, unmatched }
+  }
+
   return {
     courses,
     evaluations,
     signInCourse,
     submitEvaluation,
-    moderateEvaluation
+    moderateEvaluation,
+    importCourses
   }
 })
