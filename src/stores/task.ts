@@ -25,11 +25,13 @@ export const useTaskStore = defineStore('task', () => {
   })
 
   /**
-   * 每日任务跨天重置：
-   * 本地记录上一次结算日期，跨到新的一天时将全部 DAILY 任务进度归零并解锁领取。
-   * 首次打开（无记录）时保留初始 Mock 数据，便于演示当日状态；仅在新的一天触发重置。
+   * 每日任务当日结算（应用加载与每次任务写操作前调用，幂等）：
+   * 1) 若本地记录日期已跨天，将全部 DAILY 任务进度归零并解锁领取；
+   * 2) 记录/更新今日日期；
+   * 3) “每日登录签到”任务视为当日达成（打开过应用即视为登录），跨天重置后立即可领。
+   * 首次打开（无记录）时保留初始 Mock 数据，仅在新的一天触发重置。
    */
-  function ensureDailyReset() {
+  function ensureFreshDay() {
     try {
       const lastDate = localStorage.getItem(DAILY_DATE_KEY)
       const today = todayKey()
@@ -43,17 +45,24 @@ export const useTaskStore = defineStore('task', () => {
       }
       localStorage.setItem(DAILY_DATE_KEY, today)
     } catch {
-      // localStorage 不可用（隐私模式等）时跳过跨天重置，不阻塞功能
+      // localStorage 不可用（隐私模式等）时跳过跨天结算，不阻塞功能
     }
+
+    tasks.value.forEach((t) => {
+      if (t.type === 'DAILY' && t.trigger === 'DAILY_LOGIN' && !t.isClaimed && t.current < t.target) {
+        t.current = t.target
+      }
+    })
   }
 
-  ensureDailyReset()
+  ensureFreshDay()
 
   /**
    * 通过业务事件推进对应每日任务进度（由评价/签到/交易等 store 联动调用）。
    * 只推进尚未领取、且配置了相同 trigger 的 DAILY 任务。
    */
   function advanceTaskByTrigger(trigger: TaskTrigger, delta = 1) {
+    ensureFreshDay()
     tasks.value.forEach((t) => {
       if (t.type === 'DAILY' && t.trigger === trigger && !t.isClaimed) {
         advanceTaskProgress(t.id, delta)
@@ -62,6 +71,7 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function claimTaskReward(taskId: number): { success: boolean; message: string } {
+    ensureFreshDay()
     const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return { success: false, message: '任务不存在' }
     if (task.isClaimed) return { success: false, message: '该任务奖励已领取' }
@@ -89,6 +99,6 @@ export const useTaskStore = defineStore('task', () => {
     claimTaskReward,
     advanceTaskProgress,
     advanceTaskByTrigger,
-    ensureDailyReset
+    ensureFreshDay
   }
 })
