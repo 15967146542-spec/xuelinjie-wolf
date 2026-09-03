@@ -41,6 +41,9 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     comment: string
     anonymous?: boolean
   }): ActionResult {
+    if (userStore.user.role === 'EXTERNAL') {
+      return { success: false, message: '校外用户不可参与校内课堂评教，仅校内认证学生可提交' }
+    }
     const session = courses.value.find((c) => c.id === params.sessionId)
     if (!session) return { success: false, message: '课程不存在' }
     if (!session.isSigned) return { success: false, message: '只有完成课堂签到的同学才能评价本课程！' }

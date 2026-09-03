@@ -109,7 +109,7 @@ function handleRoleChange(role: UserRole) {
         <div class="asset-info">
           <div class="user-name-line">
             <span class="name">{{ userStore.user.name }}</span>
-            <el-tag size="small" effect="dark" type="warning" class="title-tag">长电股神</el-tag>
+            <el-tag size="small" effect="dark" type="warning" class="title-tag">杭电股神</el-tag>
           </div>
           <div class="coins-line">
             可用: <strong class="gold-text">¥{{ userStore.user.balance.toLocaleString() }}</strong>

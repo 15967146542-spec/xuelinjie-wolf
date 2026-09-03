@@ -1,0 +1,130 @@
+Reasonix 对话记录（导出）
+日期：2026-09-03
+成员：24320218（评教与任务激励模块负责人，署名如需补全请自行添加）
+工具：Reasonix（本地智能体）
+项目：学林街之狼（24320230 课程仓库，工作分支 24320218）
+
+说明：本文件为当天会话要点导出版，按“用户请求 → 执行/答复要点 → 结果/决策”整理，便于日报归档、复盘与团队同步。当天完整动作均以代码改动、构建、命令与 Git 提交记录为准。
+
+================================================================
+记录 1：完成 Day3 任务（趋势图组件增强 + 推演卡片数据化）
+================================================================
+
+用户提示：
+完成 D3 的任务。
+
+执行要点：
+1. 前置发现：24320218 分支处于合并损坏状态——router/index.ts 双默认导出、initialData.ts 大段重复声明、多个页面重复 <script>、MyCoursesView 引用缺失的 src/utils/scheduleImport；npm run build 报 13 个错误，与组长（张宏瑜）D3 台账一致。
+2. 同步修复基线：git merge origin/main（组长 7838a69 已回退损坏重写并接通 scheduleImport），干净合并；补装依赖 xlsx@^0.18.5 后 Build 恢复（✓ 3965 modules）。
+3. RatingTrendChart.vue 组件增强：
+   - ECharts 改为按需引入（echarts/core + LineChart/Grid/Tooltip/MarkLine/CanvasRenderer）；
+   - x 轴讲次标签按实际窗口长度生成（上限 RATING_WINDOW）、y 轴区间引用 EVALUATION_MIN/MAX_RATING、
+     markLine 与 tooltip 中性基准引用 NEUTRAL_RATING——聚合窗口/中性值调整只改 rules.ts 图表即跟随（收口 Day2 遗留的展示层硬编码）；
+   - 空数据占位、ResizeObserver 自适应、deep watch 改引用浅比较。
+4. EvaluationView“次日影响推演”卡片由写死文案改为数据驱动：读取当前课程关联标的真实 last5AvgRating/ratingCount，
+   经 rules.calcRatingFactorEarning（E=α×(R̄−3)/2）实时计算并展示预计次日因子收益（%+看多/看空），切换课程即刷新。
+5. 验证：vue-tsc（typescript@5 配对）涉及模块零错误；npm run build ✓；dev 冒烟 /、/evaluation、/stock/1005 及相关模块全 200。
+6. 新增成员日报 daily/24320218/D3.md。
+
+关键决策（用户）：将 D3 改动分组提交并推送（见记录 4）。
+
+================================================================
+记录 2：模块收口审计与改进（D1-D3 遗留）
+================================================================
+
+用户提示：
+研究负责模块 D1-D3 内容还有什么需要做、需要改进的，帮做一下。
+
+审计结论与修复：
+1. 【真实缺陷·跨天断链】每日重置只在 store 初始化执行——页面跨天不刷新时旧日任务仍可操作；
+   “每日登录”任务重置后归 0 却无任何动作能推进它 → 永远完不成。
+   修复（stores/task.ts）：ensureDailyReset 重构为 ensureFreshDay()，在应用加载与每次写操作
+   （advanceTaskByTrigger/claimTaskReward）前置幂等结算；新增 DAILY_LOGIN 当日自动达成（打开应用即登录），重置后立即可领。
+2. 【越权风险】评教的 EXTERNAL 角色校验只在页面层，直接调 store 可绕过。
+   修复（stores/evaluation.ts）：submitEvaluation 入口补 EXTERNAL 兜底校验。
+3. 【无人消费】taskStore.uncompletedCount 无使用方（此前缺口清单 #4）。
+   修复（views/TaskView.vue）：banner 新增“有 N 项任务已达成待领取奖励”金色提示胶囊。
+4. 【断言未固化】rules.ts 业务规则仅停留在临时 Node 断言。
+   修复：新增 tests/rules.test.ts（node:test，零第三方依赖，Node24 type-stripping 直跑 .ts），7 用例
+   （奖励常量/clampRating/空窗口与满窗口聚合/纯函数不可变/因子公式）；package.json 增加 “npm run test”。
+
+验证：npm run test 7/7 通过；vue-tsc 涉及模块零错误；npm run build ✓（691ms）；dev 冒烟全 200。
+
+剩余 backlog（未动，标注原因）：
+- market.ts 内联因子公式 ↔ rules.calcRatingFactorEarning 双份拷贝 → 跨模块，需与钟森翔/组长对齐；
+- 签到即时奖励与打卡任务奖励叠加（重复激励语义）→ 产品决策；
+- recentRatings 为滚动窗口而非真实讲次历史 → 数据来源，接后端时重定义；
+- 每日任务 localStorage 键名统一收口 → 组长统筹（R13）；
+- KLineChart 仍全量 echarts（R16 按需打包，全项目优化）；
+- 浏览器端完整交互手测 → 待有浏览器环境。
+
+================================================================
+记录 3：提交推送 D3 与收口改进（6 个提交）
+================================================================
+
+用户提示：
+把这一批一起提交并推送。
+
+执行结果（git push origin 24320218，7b62282..70fe162）：
+- bb028af  Merge origin/main（组长 7838a69 合并冲突修复）
+- d6ae5f6  feat: 评教趋势图组件增强与次日影响推演数据化
+- f5c8a3c  fix: 修复每日任务跨天结算与登录达成，补评教 EXTERNAL 兜底
+- 8a1b82a  feat: 任务页展示待领取任务提示
+- 88a42b4  test: 固化评教规则单元测试并接入 npm test
+- 70fe162  docs: 新增 24320218 D3 日报
+
+================================================================
+记录 4：重新启动项目预览
+================================================================
+
+用户提示：
+重新启动一下项目，看看网页端。
+
+执行结果：
+- dev server（vite v8.2.2）重新启动于 http://localhost:5173/；
+- 冒烟：/、/evaluation、/tasks、/courses、/market、/stock/1005、/profile、/admin、/rankings、/trade 全 200；
+- 给出体验路线（评价页签到二次确认 → 推演卡片实时数据 → 任务页待领提示/进度/去完成 → 个股趋势图）。
+
+================================================================
+记录 5：整站白屏诊断与修复
+================================================================
+
+用户提示：
+网站一片空白怎么解决。
+
+诊断过程：
+- dev 日志与模块 transform 均正常（HTTP 200），判断为浏览器运行时错误；
+- 本机无浏览器工具，临时安装 playwright-core（--no-save）驱动系统 Chrome headless 抓 console：
+  发现 [pageerror] createRouter is not defined，#app 内容为空 → 整站白屏根因。
+
+根因：
+- 合并 main 修复时 router/index.ts 丢失 vue-router 运行时导入（createRouter/createWebHistory 被调用却无 import）；
+  Vite/rolldown 不查类型、将其当全局引用编译，故 build 通过而浏览器抛 ReferenceError。
+- 同类 merge 遗留：MarketView.vue 缺 MarketTab/MarketSortBy/SortOrder/TeacherStock 类型导入，
+  StockDetailView.vue 缺 TradeSide（仅破坏类型检查，不白屏）。
+
+修复（提交 2b17ed1，已推送 70fe162..2b17ed1）：
+- src/router/index.ts：补 import { createRouter, createWebHistory } from 'vue-router'；
+- src/views/MarketView.vue / StockDetailView.vue：补齐 @/types 类型导入。
+
+验证：
+- headless Chrome 扫描 10 个页面全部正常渲染、无 pageerror、标题正确、#app 已填充（body innerText>0）；
+- vue-tsc 全量：Cannot find name/TS2304/TS2552 类错误清零（剩余仅 unused import 类噪音，属历史遗留）；
+- npm run build ✓（885ms）。
+
+================================================================
+当天成果与状态
+================================================================
+
+- 分支基线：24320218 已同步 origin/main 的合并冲突修复（xlsx/scheduleImport 接通），Build/Test 恢复。
+- 代码：RatingTrendChart 增强、EvaluationView 推演数据化、任务跨天结算与登录达成、EXTERNAL 兜底、
+  待领提示、rules 单测（npm run test）、router/类型导入白屏修复。
+- Git：24320218 共推进 7 个提交（merge + 6 功能/文档 + 1 白屏修复），本地与 origin 一致于 2b17ed1，工作区干净。
+- 文档：daily/24320218/D3.md 日报；本对话导出（prompts/24320218/D3/）。
+
+当天使用的主要命令：
+- git merge origin/main / git push origin 24320218
+- npm.cmd install（补 xlsx）/ npm.cmd run build / npm.cmd run test / npm.cmd run dev
+- npx -y -p typescript@5.9.3 -p vue-tsc@2.2.10 vue-tsc --noEmit -p tsconfig.json
+- npm.cmd install --no-save playwright-core；node <temp>/whitecheck.mjs / pagescan.mjs（headless 诊断）
+- curl 页面/模块冒烟

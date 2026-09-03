@@ -68,6 +68,9 @@ function handleClaim(taskId: number) {
         <p class="banner-desc">
           校内学生无法直接充值，通过日常到课签到、客观评教、模拟操盘与学期绩点认证获取核心投资本金。
         </p>
+        <div v-if="taskStore.uncompletedCount > 0" class="pending-tip">
+          有 <strong>{{ taskStore.uncompletedCount }}</strong> 项任务已达成待领取奖励
+        </div>
       </div>
 
       <div class="gpa-card-box">
@@ -286,6 +289,25 @@ function handleClaim(taskId: number) {
   font-size: 0.86rem;
   color: #94a3b8;
   line-height: 1.5;
+}
+
+.pending-tip {
+  margin-top: 10px;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.pending-tip strong {
+  font-size: 0.9rem;
 }
 
 .gpa-card-box {
