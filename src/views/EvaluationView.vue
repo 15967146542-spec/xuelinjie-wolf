@@ -3,7 +3,15 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEvaluationStore } from '@/stores/evaluation'
 import { useUserStore } from '@/stores/user'
-import { SIGNIN_REWARD, EVALUATION_REWARD } from '@/rules'
+import { useMarketStore } from '@/stores/market'
+import {
+  calcRatingFactorEarning,
+  EVALUATION_REWARD,
+  NEUTRAL_RATING,
+  RATING_FACTOR_ALPHA,
+  RATING_WINDOW,
+  SIGNIN_REWARD
+} from '@/rules'
 import {
   MessageSquareCheck,
   QrCode,
@@ -19,6 +27,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const route = useRoute()
 const evaluationStore = useEvaluationStore()
 const userStore = useUserStore()
+const marketStore = useMarketStore()
 
 const requestedSessionId = route.query.session as string | undefined
 const selectedSessionId = ref<string>(
@@ -47,6 +56,22 @@ const availablePresetTags = [
 
 const currentSession = computed(() => {
   return evaluationStore.courses.find((c) => c.id === selectedSessionId.value) || evaluationStore.courses[0]
+})
+
+// 选中课程的实时因子推演：读取其关联标的的真实近 RATING_WINDOW 讲均值，
+// 按 E = α × (R̄ − NEUTRAL) / 2 计算次日基本面因子收益，替代写死的机制文案
+const factorPreview = computed(() => {
+  const session = currentSession.value
+  if (!session) return null
+  const stock = marketStore.stocks.find((s) => s.code === session.stockCode)
+  if (!stock) return null
+  return {
+    courseName: session.courseName,
+    teacherName: session.teacherName,
+    last5Avg: stock.last5AvgRating,
+    ratingCount: stock.ratingCount,
+    earningPct: calcRatingFactorEarning(stock.last5AvgRating) * 100
+  }
 })
 
 function toggleTag(tag: string) {
@@ -288,8 +313,17 @@ function handleSubmitEvaluation() {
             <Sparkles :size="15" class="text-gold" />
             <span>评教数据对次日股价影响机制推演</span>
           </div>
-          <p class="impact-desc">
-            若本课获得 5 星，将拉升近 5 讲平均星级至更高区间；根据公式 $E = 0.02 \times (\bar{R} - 3) / 2$，次日开盘前将为该教师股票贡献正向基本面因子收益。
+          <p v-if="factorPreview" class="impact-desc">
+            「{{ factorPreview.courseName }}（{{ factorPreview.teacherName }}）」近 {{ RATING_WINDOW }} 讲平均星级
+            <strong class="text-gold">{{ factorPreview.last5Avg.toFixed(2) }} ★</strong>
+            （共 {{ factorPreview.ratingCount }} 次评价入库）。按公式 E = {{ RATING_FACTOR_ALPHA }} × (R̄ − {{ NEUTRAL_RATING }}) / 2 推演，
+            下一交易日开盘前预计为该标的贡献约
+            <strong class="text-blue">{{ factorPreview.earningPct >= 0 ? '+' : '' }}{{ factorPreview.earningPct.toFixed(2) }}%</strong>
+            基本面因子收益{{ factorPreview.earningPct >= 0 ? '（看多）' : '（看空）' }}。
+            现在提交一条高星评价将抬升该均值，并在次日收盘结算时计入开盘价。
+          </p>
+          <p v-else class="impact-desc">
+            当前课程未匹配到关联教学标的，暂无法推演因子影响；切换左侧课程后将在此展示实时推演。
           </p>
         </div>
       </div>
