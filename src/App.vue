@@ -12,6 +12,10 @@ import Navbar from '@/components/Navbar.vue'
         </transition>
       </router-view>
     </main>
+    <footer class="project-disclaimer" role="note">
+      <strong>课堂项目演示</strong>
+      <span>教师名称、评价汇总与市场指标仅用于产品交互演示，不构成真实教学评价或投资建议。</span>
+    </footer>
   </div>
 </template>
 
@@ -29,8 +33,25 @@ import Navbar from '@/components/Navbar.vue'
   max-width: 1480px;
   width: 100%;
   margin: 0 auto;
-  padding: 24px 20px 48px 20px;
+  padding: 24px 20px 40px 20px;
   box-sizing: border-box;
+}
+
+.project-disclaimer {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px 20px;
+  color: #94a3b8;
+  font-size: .78rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.project-disclaimer strong {
+  color: #7dd3fc;
+  white-space: nowrap;
 }
 
 .fade-enter-active,
@@ -51,6 +72,13 @@ import Navbar from '@/components/Navbar.vue'
 @media (max-width: 640px) {
   .page-container {
     padding: 16px 12px 40px 12px;
+  }
+
+  .project-disclaimer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
   }
 }
 </style>
