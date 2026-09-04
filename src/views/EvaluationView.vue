@@ -40,6 +40,7 @@ const hoverRating = ref<number>(0)
 const selectedTags = ref<string[]>(['板书天花板', '讲题通透'])
 const comment = ref<string>('')
 const isAnonymous = ref<boolean>(true)
+const isSubmitting = ref(false)
 
 const availablePresetTags = [
   '板书天花板',
@@ -105,7 +106,7 @@ function handleSignIn(sessionId: string) {
     })
 }
 
-function handleSubmitEvaluation() {
+async function handleSubmitEvaluation() {
   if (userStore.user.role === 'EXTERNAL') {
     ElMessage.warning('校外用户不可参与校内课堂评教，仅校内认证学生可提交')
     return
@@ -123,19 +124,27 @@ function handleSubmitEvaluation() {
     return
   }
 
-  const res = evaluationStore.submitEvaluation({
-    sessionId: currentSession.value.id,
-    rating: rating.value,
-    tags: selectedTags.value,
-    comment: comment.value,
-    anonymous: isAnonymous.value
-  })
+  isSubmitting.value = true
+  try {
+    // 模拟请求延迟；接入 evaluationTaskApi 后替换为真实异步调用
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-  if (res.success) {
-    ElMessage.success(res.message)
-    comment.value = ''
-  } else {
-    ElMessage.error(res.message)
+    const res = evaluationStore.submitEvaluation({
+      sessionId: currentSession.value.id,
+      rating: rating.value,
+      tags: selectedTags.value,
+      comment: comment.value,
+      anonymous: isAnonymous.value
+    })
+
+    if (res.success) {
+      ElMessage.success(res.message)
+      comment.value = ''
+    } else {
+      ElMessage.error(res.message)
+    }
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -174,6 +183,9 @@ function handleSubmitEvaluation() {
         </div>
 
         <div class="session-list">
+          <div v-if="evaluationStore.courses.length === 0" class="empty-tip">
+            暂无可评教的课程安排，导入课程后即可签到评教
+          </div>
           <div
             v-for="session in evaluationStore.courses"
             :key="session.id"
@@ -300,6 +312,8 @@ function handleSubmitEvaluation() {
               type="primary"
               size="large"
               class="submit-eval-btn"
+              :loading="isSubmitting"
+              :disabled="isSubmitting"
               @click="handleSubmitEvaluation"
             >
               提交客观评价 (+{{ EVALUATION_REWARD }}学币)
@@ -434,6 +448,15 @@ function handleSubmitEvaluation() {
 .sub-text {
   font-size: 0.74rem;
   color: #94a3b8;
+}
+
+.empty-tip {
+  padding: 18px 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #64748b;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
 }
 
 .session-list {
