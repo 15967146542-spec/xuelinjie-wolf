@@ -81,3 +81,38 @@ export function applyRatingAggregation(
 export function calcRatingFactorEarning(last5Avg: number): number {
   return RATING_FACTOR_ALPHA * ((last5Avg - NEUTRAL_RATING) / 2)
 }
+
+// ---------------------------------------------------------------------------
+// 每日任务结算规则（纯函数，供 stores/task.ts 使用并可被单测直接覆盖）
+// ---------------------------------------------------------------------------
+
+/** 每日任务参与结算所需的最小状态结构 */
+export interface DailyTaskState {
+  type: string
+  trigger?: string
+  current: number
+  target: number
+  isClaimed: boolean
+}
+
+/** 是否需要执行跨天结算：存在上次结算日期且与今日不同（首次打开不重置，保留演示数据） */
+export function shouldResetDaily(lastDate: string | null, today: string): boolean {
+  return !!lastDate && lastDate !== today
+}
+
+/** 返回 DAILY 任务跨天归零后的新状态（纯函数，不修改入参） */
+export function resetDailyTask<T extends DailyTaskState>(task: T): T {
+  return { ...task, current: 0, isClaimed: false }
+}
+
+/**
+ * 每日登录任务当日自动达成：打开过应用即视为当日登录，
+ * 对 DAILY + DAILY_LOGIN 且未领取的任务补满进度（不修改入参）。
+ */
+export function autoCompleteLoginTask<T extends DailyTaskState>(task: T): T {
+  const isLogin = task.type === 'DAILY' && task.trigger === 'DAILY_LOGIN'
+  if (isLogin && !task.isClaimed && task.current < task.target) {
+    return { ...task, current: task.target }
+  }
+  return { ...task }
+}

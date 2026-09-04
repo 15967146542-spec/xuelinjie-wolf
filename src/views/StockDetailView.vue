@@ -6,6 +6,15 @@ import { useTradeStore } from '@/stores/trade'
 import { useUserStore } from '@/stores/user'
 import { useEvaluationStore } from '@/stores/evaluation'
 import type { NextDayProjection, Position, TradeSide, TeacherStock } from '@/types'
+import {
+  calcChange,
+  formatCurrency,
+  formatPercent,
+  formatShares,
+  formatSignedCurrency,
+  trendClass
+} from '@/utils/marketFormatters'
+import { extractReturnMarketQuery } from '@/utils/marketRouteState'
 import KLineChart from '@/components/KLineChart.vue'
 import RatingTrendChart from '@/components/RatingTrendChart.vue'
 import {
@@ -67,6 +76,30 @@ const quickTradeSide = ref<TradeSide>('BUY')
 const tradeShares = ref<number>(10)
 const isSubmitting = ref(false)
 
+const priceChange = computed(() => {
+  if (!stock.value) {
+    return {
+      delta: 0,
+      ratio: 0
+    }
+  }
+  return calcChange(stock.value.currentPrice, stock.value.prevClose)
+})
+
+const tradeAmount = computed(() => {
+  if (!stock.value) return 0
+  return Number((stock.value.currentPrice * tradeShares.value).toFixed(2))
+})
+
+const feeRate = computed(() => (userStore.user.monthCardActive ? 0.0005 : 0.001))
+const feeAmount = computed(() => Number((tradeAmount.value * feeRate.value).toFixed(2)))
+const settlementAmount = computed(() => {
+  const val = quickTradeSide.value === 'BUY'
+    ? tradeAmount.value + feeAmount.value
+    : tradeAmount.value - feeAmount.value
+  return Number(val.toFixed(2))
+})
+
 // Factor calculation breakdown
 const projection = computed<NextDayProjection>(() => {
   if (!stock.value) {
@@ -101,12 +134,6 @@ const userHolding = computed<Position | undefined>(() => {
   const currentCode = stock.value.code
   return tradeStore.positions.find((p) => p.stockCode === currentCode)
 })
-
-function getRatio() {
-  if (!stock.value) return 0
-  const val = ((stock.value.currentPrice - stock.value.prevClose) / stock.value.prevClose) * 100
-  return Number(val.toFixed(2))
-}
 
 function handleTrade() {
   if (!stock.value) {
@@ -157,6 +184,13 @@ async function reloadDetail() {
   await marketStore.bootstrapMarket(true)
 }
 
+function backToMarket() {
+  router.push({
+    path: '/market',
+    query: extractReturnMarketQuery(route.query, stock.value?.code)
+  })
+}
+
 function syncSelectedStockByRoute() {
   if (stock.value) {
     marketStore.selectStock(stock.value.code)
@@ -189,14 +223,14 @@ onMounted(async () => {
     <div v-else-if="isNotFound" class="state-panel">
       <p class="state-title">未找到该标的</p>
       <p class="state-text">当前路由参数无效，请返回行情页重新选择。</p>
-      <el-button type="primary" size="small" @click="router.push('/market')">返回行情页</el-button>
+      <el-button type="primary" size="small" @click="backToMarket">返回行情页</el-button>
     </div>
 
     <template v-else-if="stock">
     <!-- Top Back Bar & Header -->
     <div class="header-card">
       <div class="header-top">
-        <button class="back-btn" @click="router.push('/market')">
+        <button class="back-btn" @click="backToMarket">
           <ArrowLeft :size="16" /> 返回行情大厅
         </button>
         <div class="header-actions">
@@ -226,12 +260,12 @@ onMounted(async () => {
         </div>
 
         <div class="hero-price-box">
-          <div class="price-val" :class="stock.currentPrice >= stock.prevClose ? 'up' : 'down'">
-            ¥{{ stock.currentPrice.toFixed(2) }}
+          <div class="price-val" :class="trendClass(priceChange.ratio)">
+            {{ formatCurrency(stock.currentPrice) }}
           </div>
-          <div class="price-change-row" :class="getRatio() >= 0 ? 'up' : 'down'">
-            <span>{{ stock.currentPrice >= stock.prevClose ? '+' : '' }}{{ (stock.currentPrice - stock.prevClose).toFixed(2) }}</span>
-            <span>({{ getRatio() >= 0 ? '+' : '' }}{{ getRatio() }}%)</span>
+          <div class="price-change-row" :class="trendClass(priceChange.ratio)">
+            <span>{{ formatSignedCurrency(priceChange.delta) }}</span>
+            <span>({{ formatPercent(priceChange.ratio) }})</span>
             <span class="price-tag">涨跌幅限制 ±10%</span>
           </div>
         </div>
@@ -241,27 +275,27 @@ onMounted(async () => {
       <div class="metrics-ribbon">
         <div class="metric-cell">
           <span class="m-label">今开盘</span>
-          <span class="m-val">¥{{ stock.openPrice.toFixed(2) }}</span>
+          <span class="m-val">{{ formatCurrency(stock.openPrice) }}</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">最高价</span>
-          <span class="m-val up">¥{{ stock.highPrice.toFixed(2) }}</span>
+          <span class="m-val up">{{ formatCurrency(stock.highPrice) }}</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">最低价</span>
-          <span class="m-val down">¥{{ stock.lowPrice.toFixed(2) }}</span>
+          <span class="m-val down">{{ formatCurrency(stock.lowPrice) }}</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">昨收盘</span>
-          <span class="m-val">¥{{ stock.prevClose.toFixed(2) }}</span>
+          <span class="m-val">{{ formatCurrency(stock.prevClose) }}</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">成交量</span>
-          <span class="m-val">{{ (stock.volume / 1000).toFixed(1) }}k 股</span>
+          <span class="m-val">{{ formatShares(stock.volume) }} 股</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">流通市值</span>
-          <span class="m-val">¥{{ (stock.marketCap / 10000).toFixed(1) }}万</span>
+          <span class="m-val">{{ formatCurrency(stock.marketCap, 0) }}</span>
         </div>
         <div class="metric-cell">
           <span class="m-label">近5讲均分</span>
@@ -313,7 +347,7 @@ onMounted(async () => {
             <div class="factor-box">
               <div class="f-name">1. 评价因子 (E)</div>
               <div class="f-val" :class="projection.evalFactor >= 0 ? 'up' : 'down'">
-                {{ projection.evalFactor >= 0 ? '+' : '' }}{{ projection.evalFactor }}%
+                {{ formatPercent(projection.evalFactor) }}
               </div>
               <div class="f-calc">
                 α × ({{ stock.last5AvgRating.toFixed(2) }} - 3.0) / 2
@@ -323,7 +357,7 @@ onMounted(async () => {
             <div class="factor-box">
               <div class="f-name">2. 资金因子 (F)</div>
               <div class="f-val" :class="projection.fundFactor >= 0 ? 'up' : 'down'">
-                {{ projection.fundFactor >= 0 ? '+' : '' }}{{ projection.fundFactor }}%
+                {{ formatPercent(projection.fundFactor) }}
               </div>
               <div class="f-calc">
                 β × (净流入/总市值)
@@ -333,7 +367,7 @@ onMounted(async () => {
             <div class="factor-box">
               <div class="f-name">3. 宏观指数 (M)</div>
               <div class="f-val" :class="projection.macroImpact >= 0 ? 'up' : 'down'">
-                {{ projection.macroImpact >= 0 ? '+' : '' }}{{ projection.macroImpact }}%
+                {{ formatPercent(projection.macroImpact) }}
               </div>
               <div class="f-calc">
                 γ × (宏观指数-1.0)
@@ -343,7 +377,7 @@ onMounted(async () => {
             <div class="factor-box">
               <div class="f-name">4. 随机扰动 (N)</div>
               <div class="f-val text-soft">
-                {{ projection.noise >= 0 ? '+' : '' }}{{ projection.noise }}%
+                {{ formatPercent(projection.noise) }}
               </div>
               <div class="f-calc">
                 random(-1.5%, +1.5%)
@@ -356,12 +390,12 @@ onMounted(async () => {
             <div>
               <span class="sub">次日预估涨跌幅</span>
               <strong class="highlight" :class="projection.deltaPct >= 0 ? 'up' : 'down'">
-                {{ projection.deltaPct >= 0 ? '+' : '' }}{{ projection.deltaPct }}%
+                {{ formatPercent(projection.deltaPct) }}
               </strong>
             </div>
             <div>
               <span class="sub">次日预估开盘价</span>
-              <strong class="highlight font-mono">¥{{ projection.nextPrice.toFixed(2) }}</strong>
+              <strong class="highlight font-mono">{{ formatCurrency(projection.nextPrice) }}</strong>
             </div>
             <div>
               <span class="sub">单日涨跌熔断限额</span>
@@ -408,7 +442,7 @@ onMounted(async () => {
       </div>
 
       <!-- Right Column: Quick Trading Order Ticket & Current Holding -->
-      <div class="detail-right">
+      <div v-if="userStore.canUse('TRADE')" class="detail-right">
         <!-- 1. Order Ticket Card -->
         <div class="panel-card trade-ticket-card">
           <div class="panel-title-bar">
@@ -438,7 +472,7 @@ onMounted(async () => {
             <div class="form-row">
               <span class="f-label">委托价格</span>
               <div class="f-input-box market-price-box">
-                <span class="fixed-price">¥{{ stock.currentPrice.toFixed(2) }}</span>
+                <span class="fixed-price">{{ formatCurrency(stock.currentPrice) }}</span>
                 <span class="price-type">市价即时成交</span>
               </div>
             </div>
@@ -465,16 +499,16 @@ onMounted(async () => {
             <div class="cost-breakdown">
               <div class="cost-line">
                 <span>预估成交额</span>
-                <strong class="font-mono">¥{{ (stock.currentPrice * tradeShares).toFixed(2) }}</strong>
+                <strong class="font-mono">{{ formatCurrency(tradeAmount) }}</strong>
               </div>
               <div class="cost-line">
                 <span>交易手续费 (0.1% {{ userStore.user.monthCardActive ? '·月卡5折' : '' }})</span>
-                <span class="font-mono">¥{{ (stock.currentPrice * tradeShares * (userStore.user.monthCardActive ? 0.0005 : 0.001)).toFixed(2) }}</span>
+                <span class="font-mono">{{ formatCurrency(feeAmount) }}</span>
               </div>
               <div class="cost-line total">
                 <span>{{ quickTradeSide === 'BUY' ? '预计支付' : '预计回笼' }}</span>
                 <strong class="font-mono" :class="quickTradeSide === 'BUY' ? 'up' : 'down'">
-                  ¥{{ (stock.currentPrice * tradeShares * (quickTradeSide === 'BUY' ? 1.001 : 0.999)).toFixed(2) }}
+                  {{ formatCurrency(settlementAmount) }}
                 </strong>
               </div>
             </div>
@@ -492,7 +526,7 @@ onMounted(async () => {
               :disabled="isSubmitting"
               @click="handleTrade"
             >
-              {{ quickTradeSide === 'BUY' ? `以 ¥${stock.currentPrice.toFixed(2)} 买入 ${stock.name}` : `以 ¥${stock.currentPrice.toFixed(2)} 卖出 ${stock.name}` }}
+              {{ quickTradeSide === 'BUY' ? `以 ${formatCurrency(stock.currentPrice)} 买入 ${stock.name}` : `以 ${formatCurrency(stock.currentPrice)} 卖出 ${stock.name}` }}
             </button>
           </div>
         </div>
@@ -509,12 +543,12 @@ onMounted(async () => {
             <div class="holding-metric-row">
               <div class="h-metric">
                 <span class="h-label">持仓总量</span>
-                <strong class="h-val font-mono">{{ userHolding.totalShares }} 股</strong>
+                <strong class="h-val font-mono">{{ formatShares(userHolding.totalShares) }} 股</strong>
               </div>
               <div class="h-metric">
                 <span class="h-label">今日可卖 (T+1)</span>
                 <strong class="h-val font-mono" :class="userHolding.availableShares > 0 ? 'text-blue' : 'text-soft'">
-                  {{ userHolding.availableShares }} 股
+                  {{ formatShares(userHolding.availableShares) }} 股
                 </strong>
               </div>
             </div>
@@ -522,19 +556,19 @@ onMounted(async () => {
             <div class="holding-metric-row">
               <div class="h-metric">
                 <span class="h-label">持仓成本</span>
-                <span class="h-val font-mono">¥{{ userHolding.costPrice.toFixed(2) }}</span>
+                <span class="h-val font-mono">{{ formatCurrency(userHolding.costPrice) }}</span>
               </div>
               <div class="h-metric">
                 <span class="h-label">持仓市值</span>
-                <span class="h-val font-mono">¥{{ (userHolding.totalShares * stock.currentPrice).toFixed(2) }}</span>
+                <span class="h-val font-mono">{{ formatCurrency(userHolding.totalShares * stock.currentPrice) }}</span>
               </div>
             </div>
 
             <div class="profit-bar" :class="userHolding.floatProfit >= 0 ? 'p-up' : 'p-down'">
               <span>浮动盈亏：</span>
               <strong>
-                {{ userHolding.floatProfit >= 0 ? '+' : '' }}¥{{ userHolding.floatProfit.toFixed(2) }}
-                ({{ userHolding.profitRatio >= 0 ? '+' : '' }}{{ userHolding.profitRatio }}%)
+                {{ formatSignedCurrency(userHolding.floatProfit) }}
+                ({{ formatPercent(userHolding.profitRatio) }})
               </strong>
             </div>
 
@@ -543,7 +577,7 @@ onMounted(async () => {
               <div class="lots-title">持仓批次 (T+1 状态)</div>
               <div v-for="lot in userHolding.lots" :key="lot.lotId" class="lot-row">
                 <span>买入日: {{ lot.buyDate }}</span>
-                <span>{{ lot.shares }}股 @ ¥{{ lot.costPrice.toFixed(2) }}</span>
+                <span>{{ formatShares(lot.shares) }}股 @ {{ formatCurrency(lot.costPrice) }}</span>
                 <span class="lot-status" :class="lot.canSellToday ? 'can-sell' : 'locked'">
                   {{ lot.canSellToday ? '可卖出' : 'T+1 锁定中' }}
                 </span>
@@ -559,6 +593,12 @@ onMounted(async () => {
       </div>
     </div>
     </template>
+
+    <div v-else class="state-panel">
+      <p class="state-title">暂无标的详情</p>
+      <p class="state-text">当前暂无可展示的课程标的，请先返回行情页选择。</p>
+      <el-button type="primary" size="small" @click="backToMarket">返回行情页</el-button>
+    </div>
   </div>
 </template>
 
@@ -1233,6 +1273,46 @@ onMounted(async () => {
   }
   .metrics-ribbon {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .proj-summary-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .holding-metric-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .metrics-ribbon {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .factors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .percent-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lot-row {
+    flex-direction: column;
+    gap: 4px;
   }
 }
 </style>

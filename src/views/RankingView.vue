@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRankingStore } from '@/stores/ranking'
 import {
   Trophy,
@@ -23,6 +23,44 @@ const currentRankingList = computed(() => {
   return rankingStore.liveRankings
 })
 
+// 名人堂三甲固定取杭电校内总资产榜，不受下方榜单 Tab 切换影响。
+// 展示顺序固定为第二名、第一名、第三名，确保第一名位于中间。
+const topThreeRankings = computed(() => {
+  const topUsers = rankingStore.campusRankings.filter((user) => user.rank <= 3)
+  return [2, 1, 3]
+    .map((rank) => topUsers.find((user) => user.rank === rank))
+    .filter((user): user is NonNullable<typeof user> => Boolean(user))
+})
+
+const settlementCountdown = ref('')
+let countdownTimer: ReturnType<typeof setInterval> | undefined
+
+function updateSettlementCountdown() {
+  const now = new Date()
+  const settlement = new Date(now)
+  const daysUntilSunday = (7 - now.getDay()) % 7
+
+  settlement.setDate(now.getDate() + daysUntilSunday)
+  settlement.setHours(18, 0, 0, 0)
+  if (settlement.getTime() <= now.getTime()) settlement.setDate(settlement.getDate() + 7)
+
+  const seconds = Math.floor((settlement.getTime() - now.getTime()) / 1000)
+  const days = Math.floor(seconds / 86400)
+  const hours = Math.floor((seconds % 86400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
+  settlementCountdown.value = `${days}天 ${hours}小时 ${minutes}分 ${remainingSeconds}秒`
+}
+
+onMounted(() => {
+  updateSettlementCountdown()
+  countdownTimer = setInterval(updateSettlementCountdown, 1000)
+})
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer)
+})
+
 function getRankBadgeClass(rank: number) {
   if (rank === 1) return 'rank-1'
   if (rank === 2) return 'rank-2'
@@ -40,8 +78,25 @@ function getRankBadgeClass(rank: number) {
           <Crown :size="16" />
           <span>周度荣誉称号名人堂 (每周日 18:00 结算，有效期 7 天)</span>
         </div>
-        <span class="countdown-tip">本周结算倒计时：4天 12小时</span>
+        <span class="countdown-tip">本周结算倒计时：{{ settlementCountdown }}</span>
       </div>
+
+      <section v-if="topThreeRankings.length" class="top-three" aria-label="杭电总资产榜前三名">
+        <article
+          v-for="user in topThreeRankings"
+          :key="user.userId"
+          class="top-three-user"
+          :class="`top-three-rank-${user.rank}`"
+        >
+          <div class="top-three-avatar-wrap">
+            <img :src="user.avatar" class="top-three-avatar" :alt="`${user.username}的头像`" />
+            <span class="top-three-medal">{{ user.rank }}</span>
+          </div>
+          <strong class="top-three-name">{{ user.username }}</strong>
+          <span v-if="user.title" class="top-three-title">{{ user.title }}</span>
+          <strong class="top-three-asset">¥{{ user.totalAsset.toLocaleString() }}</strong>
+        </article>
+      </section>
 
       <div class="titles-grid">
         <div
@@ -339,6 +394,103 @@ function getRankBadgeClass(rank: number) {
   overflow-x: auto;
 }
 
+/* 三列等宽：DOM 顺序为 2、1、3，第一名永远处于正中。 */
+.top-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(16px, 6vw, 72px);
+  padding: 18px clamp(24px, 8vw, 100px) 24px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  background: radial-gradient(circle at center bottom, rgba(251, 191, 36, 0.12), transparent 58%);
+}
+
+.top-three-user {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  text-align: center;
+}
+
+.top-three-avatar-wrap {
+  position: relative;
+  width: 68px;
+  height: 68px;
+}
+
+.top-three-avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border: 3px solid rgba(148, 163, 184, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.45);
+}
+
+.top-three-medal {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #111a2c;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.top-three-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-three-asset {
+  color: #f87171;
+  font-family: monospace;
+  font-size: 1.08rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.top-three-title {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-three-rank-1 .top-three-avatar-wrap {
+  width: 86px;
+  height: 86px;
+}
+
+.top-three-rank-1 .top-three-avatar {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 5px rgba(251, 191, 36, 0.14), 0 10px 24px rgba(251, 191, 36, 0.22);
+}
+
+.top-three-rank-1 .top-three-medal { background: #fbbf24; color: #111827; }
+.top-three-rank-2 .top-three-avatar { border-color: #cbd5e1; }
+.top-three-rank-2 .top-three-medal { background: #cbd5e1; color: #111827; }
+.top-three-rank-3 .top-three-avatar { border-color: #d97706; }
+.top-three-rank-3 .top-three-medal { background: #d97706; color: white; }
+
 .ranking-table {
   width: 100%;
   border-collapse: collapse;
@@ -471,3 +623,4 @@ function getRankBadgeClass(rank: number) {
   .titles-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
+

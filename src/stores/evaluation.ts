@@ -22,6 +22,9 @@ export const useEvaluationStore = defineStore('evaluation', () => {
 
   // Sign in to class session
   function signInCourse(sessionId: string): ActionResult {
+    if (!userStore.canUse('EVALUATION_WRITE')) {
+      return { success: false, message: '当前身份仅可阅读评价，不能签到或获得学币奖励' }
+    }
     const session = courses.value.find((c) => c.id === sessionId)
     if (!session) return { success: false, message: '未找到该课程安排' }
     if (session.isSigned) return { success: false, message: '您已完成本节课签到' }
@@ -41,8 +44,8 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     comment: string
     anonymous?: boolean
   }): ActionResult {
-    if (userStore.user.role === 'EXTERNAL') {
-      return { success: false, message: '校外用户不可参与校内课堂评教，仅校内认证学生可提交' }
+    if (!userStore.canUse('EVALUATION_WRITE')) {
+      return { success: false, message: '当前身份仅可阅读评价，不能提交课堂评教' }
     }
     const session = courses.value.find((c) => c.id === params.sessionId)
     if (!session) return { success: false, message: '课程不存在' }
@@ -96,6 +99,7 @@ export const useEvaluationStore = defineStore('evaluation', () => {
   }
 
   function moderateEvaluation(evalId: string, status: 'APPROVED' | 'REJECTED' | 'DOWNWEIGHTED') {
+    if (!userStore.canUse('RISK_ADMIN')) return
     const target = evaluations.value.find((e) => e.id === evalId)
     if (target) {
       target.status = status

@@ -28,17 +28,33 @@ export const useRankingStore = defineStore('ranking', () => {
   })
 
   const campusRankings = computed(() => {
-    return liveRankings.value.filter((u) => u.userRole === 'STUDENT')
-  })
-
+    return liveRankings.value
+      .filter((u) => u.userRole === 'STUDENT')
+      .sort((a, b) => b.totalAsset - a.totalAsset) // 按总资产降序排序
+      .map((u, idx) => ({
+        ...u,
+        rank: idx + 1 // 自增排名
+      }));
+  });
+  
   const externalRankings = computed(() => {
-    return liveRankings.value.filter((u) => u.userRole === 'EXTERNAL')
-  })
-
+    return liveRankings.value
+      .filter((u) => u.userRole === 'EXTERNAL')
+      .sort((a, b) => b.totalAsset - a.totalAsset) 
+      .map((u, idx) => ({
+        ...u,
+        rank: idx + 1 // 自增排名
+      }));
+  });
+  
   const dailyProfitRankings = computed(() => {
-    return [...liveRankings.value].sort((a, b) => b.dailyProfitRatio - a.dailyProfitRatio)
-  })
-
+    return [...liveRankings.value]
+      .sort((a, b) => b.dailyProfitRatio - a.dailyProfitRatio) // 按每日收益率降序排序
+      .map((u, idx) => ({
+        ...u,
+        rank: idx + 1 // 自增排名
+      }));
+  });
   return {
     rankingUsers,
     liveRankings,
