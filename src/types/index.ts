@@ -38,6 +38,7 @@ export interface TeacherStock {
   teacherName: string
   course: string
   department: string
+  photo?: string
   currentPrice: number
   prevClose: number
   openPrice: number
