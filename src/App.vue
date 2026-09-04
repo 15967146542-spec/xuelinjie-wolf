@@ -47,4 +47,10 @@ import Navbar from '@/components/Navbar.vue'
   opacity: 0;
   transform: translateY(-6px);
 }
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 16px 12px 40px 12px;
+  }
+}
 </style>
