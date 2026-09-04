@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore, type UserFeature } from '@/stores/user'
 import { useMarketStore } from '@/stores/market'
@@ -15,7 +15,9 @@ import {
   Trophy,
   User,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  Menu,
+  X
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -25,6 +27,15 @@ const marketStore = useMarketStore()
 const tradeStore = useTradeStore()
 
 const currentPath = computed(() => route.path)
+const mobileOpen = ref(false)
+
+// Auto-close the mobile drawer whenever the route changes.
+watch(
+  () => route.path,
+  () => {
+    mobileOpen.value = false
+  }
+)
 
 interface NavLink {
   name: string
@@ -45,14 +56,8 @@ const navLinks: NavLink[] = [
   { name: '风控后台', path: '/admin', icon: ShieldAlert, feature: 'RISK_ADMIN' }
 ]
 
-const visibleNavLinks = computed(() => navLinks.filter((link) => {
-  if (link.feature) return userStore.canUse(link.feature)
-  return !link.roles || link.roles.includes(userStore.user.role)
-}))
-
 function handleRoleChange(role: UserRole) {
   userStore.setRole(role)
-  if (route.path === '/admin' && role !== 'ADMIN') router.push('/market')
 }
 </script>
 
@@ -82,21 +87,21 @@ function handleRoleChange(role: UserRole) {
       </div>
     </div>
 
-    <!-- Main Navigation Items -->
+    <!-- Main Navigation Items (desktop) -->
     <nav class="nav-links">
       <router-link
         v-for="link in visibleNavLinks"
         :key="link.path"
         :to="link.path"
         class="nav-item"
-        :class="{ active: currentPath === link.path || (link.path !== '/' && currentPath.startsWith(link.path)) }"
+        :class="{ active: isActive(link.path) }"
       >
         <component :is="link.icon" :size="17" class="nav-icon" />
         <span>{{ link.name }}</span>
       </router-link>
     </nav>
 
-    <!-- Nav Right: Role Switcher + User Info Capsule -->
+    <!-- Nav Right: Role Switcher + User Info Capsule + Mobile Toggle -->
     <div class="nav-right">
       <!-- Role Switcher for simulation testing -->
       <el-dropdown trigger="click" @command="handleRoleChange">
@@ -132,7 +137,51 @@ function handleRoleChange(role: UserRole) {
           </div>
         </div>
       </div>
+
+      <!-- Mobile menu toggle -->
+      <button
+        class="menu-toggle"
+        :aria-expanded="mobileOpen"
+        aria-label="切换导航菜单"
+        @click="mobileOpen = !mobileOpen"
+      >
+        <X v-if="mobileOpen" :size="22" />
+        <Menu v-else :size="22" />
+      </button>
     </div>
+
+    <!-- Mobile navigation drawer -->
+    <transition name="drop">
+      <div v-if="mobileOpen" class="mobile-menu">
+        <nav class="mobile-links">
+          <router-link
+            v-for="link in navLinks"
+            :key="link.path"
+            :to="link.path"
+            class="mobile-link"
+            :class="{ active: isActive(link.path) }"
+          >
+            <component :is="link.icon" :size="18" class="mobile-link-icon" />
+            <span>{{ link.name }}</span>
+          </router-link>
+        </nav>
+
+        <div class="mobile-roles">
+          <div class="mobile-section-label">切换身份</div>
+          <div class="mobile-role-list">
+            <button
+              v-for="opt in roleOptions"
+              :key="opt.role"
+              class="mobile-role-btn"
+              :class="{ active: userStore.user.role === opt.role }"
+              @click="handleRoleChange(opt.role)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
   </header>
 </template>
 
@@ -361,5 +410,187 @@ function handleRoleChange(role: UserRole) {
 
 .mr-1 {
   margin-right: 4px;
+}
+
+/* ---- Mobile toggle button ---- */
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.menu-toggle:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+/* ---- Mobile drawer ---- */
+.mobile-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(13, 20, 36, 0.98);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  padding: 14px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-links {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mobile-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  transition: all 0.18s;
+}
+
+.mobile-link:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mobile-link.active {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.mobile-link-icon {
+  flex-shrink: 0;
+}
+
+.mobile-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.mobile-role-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mobile-role-btn {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.mobile-role-btn:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: #38bdf8;
+}
+
+.mobile-role-btn.active {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.35);
+  font-weight: 600;
+}
+
+.drop-enter-active,
+.drop-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.drop-enter-from,
+.drop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ---- Responsive breakpoints ---- */
+@media (max-width: 1180px) {
+  .nav-links,
+  .index-ticker {
+    display: none;
+  }
+
+  .menu-toggle {
+    display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-navbar {
+    padding: 10px 14px;
+  }
+
+  .brand-slogan,
+  .coins-line,
+  .title-tag {
+    display: none;
+  }
+
+  .logo-symbol {
+    width: 36px;
+    height: 36px;
+  }
+
+  .brand-title {
+    font-size: 1.02rem;
+  }
+
+  .role-btn span {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-capsule {
+    padding-right: 8px;
+  }
+
+  .nav-right {
+    gap: 8px;
+  }
+
+  .mobile-links,
+  .mobile-role-list {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

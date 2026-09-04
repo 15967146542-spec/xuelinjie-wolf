@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TaskItem, TaskTrigger } from '@/types'
 import { initialTasks } from '@/mock/initialData'
+import { autoCompleteLoginTask, resetDailyTask, shouldResetDaily } from '@/rules'
 import { useUserStore } from './user'
 
 /** localStorage 中记录“每日任务最近一次结算日期”的键名 */
@@ -35,24 +36,15 @@ export const useTaskStore = defineStore('task', () => {
     try {
       const lastDate = localStorage.getItem(DAILY_DATE_KEY)
       const today = todayKey()
-      if (lastDate && lastDate !== today) {
-        tasks.value.forEach((t) => {
-          if (t.type === 'DAILY') {
-            t.current = 0
-            t.isClaimed = false
-          }
-        })
+      if (shouldResetDaily(lastDate, today)) {
+        tasks.value = tasks.value.map((t) => (t.type === 'DAILY' ? resetDailyTask(t) : t))
       }
       localStorage.setItem(DAILY_DATE_KEY, today)
     } catch {
       // localStorage 不可用（隐私模式等）时跳过跨天结算，不阻塞功能
     }
 
-    tasks.value.forEach((t) => {
-      if (t.type === 'DAILY' && t.trigger === 'DAILY_LOGIN' && !t.isClaimed && t.current < t.target) {
-        t.current = t.target
-      }
-    })
+    tasks.value = tasks.value.map(autoCompleteLoginTask)
   }
 
   ensureFreshDay()

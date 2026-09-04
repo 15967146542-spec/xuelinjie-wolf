@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
 import type { MarketSortBy, MarketTab, SortOrder, TeacherStock } from '@/types'
 import KLineChart from '@/components/KLineChart.vue'
+import { buildMarketRouteQuery, parseMarketRouteState } from '@/utils/marketRouteState'
+import {
+  calcChange,
+  formatCompactAmount,
+  formatCurrency,
+  formatPercent,
+  formatSignedCurrency,
+  trendClass
+} from '@/utils/marketFormatters'
 import {
   Search,
   Star,
@@ -17,12 +26,14 @@ import {
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const marketStore = useMarketStore()
 
 const searchQuery = ref('')
 const activeTab = ref<MarketTab>('ALL')
 const sortBy = ref<MarketSortBy>('ratio')
 const sortOrder = ref<SortOrder>('desc')
+const isHydratingState = ref(true)
 
 const sortOptions: Array<{ label: string; value: MarketSortBy }> = [
   { label: '涨跌幅', value: 'ratio' },
@@ -56,8 +67,8 @@ const filteredStocks = computed(() => {
   list.sort((a, b) => {
     let diff = 0
     if (sortBy.value === 'ratio') {
-      const ratioA = ((a.currentPrice - a.prevClose) / a.prevClose) * 100
-      const ratioB = ((b.currentPrice - b.prevClose) / b.prevClose) * 100
+      const ratioA = calcChange(a.currentPrice, a.prevClose).ratio
+      const ratioB = calcChange(b.currentPrice, b.prevClose).ratio
       diff = ratioA - ratioB
     } else if (sortBy.value === 'price') {
       diff = a.currentPrice - b.currentPrice
@@ -74,7 +85,7 @@ const filteredStocks = computed(() => {
 
 const totalAmountWan = computed(() => {
   const totalAmount = marketStore.stocks.reduce((acc: number, s: TeacherStock) => acc + s.amount, 0)
-  return (totalAmount / 10000).toFixed(1)
+  return formatCompactAmount(totalAmount)
 })
 
 const isLoading = computed(() => marketStore.marketStatus === 'loading' || marketStore.marketStatus === 'idle')
@@ -84,6 +95,18 @@ const isResultEmpty = computed(
   () => marketStore.marketStatus === 'success' && marketStore.stocks.length > 0 && filteredStocks.value.length === 0
 )
 
+const selectedPreviewStock = computed<TeacherStock | null>(() => {
+  if (!marketStore.hasStocks) return null
+  return marketStore.selectedStock
+})
+
+const emptyHint = computed(() => {
+  if (activeTab.value === 'WATCHLIST') return '你还没有添加自选，点击星标即可关注课程标的。'
+  if (activeTab.value === 'GAINERS') return '当前暂无上涨标的，稍后可刷新查看。'
+  if (activeTab.value === 'HIGH_RATING') return '当前暂无五星课程标的，尝试切换筛选条件。'
+  return '请调整筛选条件或清空搜索关键词后重试。'
+})
+
 function toggleSortOrder() {
   sortOrder.value = sortOrder.value === 'desc' ? 'asc' : 'desc'
 }
@@ -92,9 +115,8 @@ async function reloadMarket() {
   await marketStore.bootstrapMarket(true)
 }
 
-function getRatio(stock: { currentPrice: number; prevClose: number }) {
-  const val = ((stock.currentPrice - stock.prevClose) / stock.prevClose) * 100
-  return Number(val.toFixed(2))
+function getChange(stock: { currentPrice: number; prevClose: number }) {
+  return calcChange(stock.currentPrice, stock.prevClose)
 }
 
 function handleRowClick(row: TeacherStock) {
@@ -103,7 +125,16 @@ function handleRowClick(row: TeacherStock) {
 
 function goToDetail(code: string) {
   marketStore.selectStock(code)
-  router.push(`/stock/${code}`)
+  router.push({
+    path: `/stock/${code}`,
+    query: {
+      from: 'market',
+      tab: activeTab.value,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value,
+      q: searchQuery.value.trim() || undefined
+    }
+  })
 }
 
 function toggleFav(code: string, e: Event) {
@@ -114,6 +145,33 @@ function toggleFav(code: string, e: Event) {
 
 onMounted(async () => {
   await marketStore.bootstrapMarket()
+
+  const restoredState = parseMarketRouteState(route.query)
+
+  searchQuery.value = restoredState.q
+  activeTab.value = restoredState.tab
+  sortBy.value = restoredState.sortBy
+  sortOrder.value = restoredState.sortOrder
+
+  if (restoredState.code && marketStore.getStockByCode(restoredState.code)) {
+    marketStore.selectStock(restoredState.code)
+  }
+
+  isHydratingState.value = false
+})
+
+watch([searchQuery, activeTab, sortBy, sortOrder, () => selectedPreviewStock.value?.code], ([q, tab, sort, order, code]) => {
+  if (isHydratingState.value) return
+
+  router.replace({
+    query: buildMarketRouteQuery({
+      q,
+      tab,
+      sortBy: sort,
+      sortOrder: order,
+      code: code || undefined
+    })
+  })
 })
 </script>
 
@@ -146,7 +204,7 @@ onMounted(async () => {
               {{ marketStore.indexChangePct >= 0 ? '+' : '' }}{{ marketStore.indexChangePct }}%
             </span>
           </div>
-          <div class="index-sub">今日成交总量: {{ totalAmountWan }}万学币</div>
+          <div class="index-sub">今日成交总量: {{ totalAmountWan }}学币</div>
         </div>
       </div>
     </div>
@@ -238,7 +296,7 @@ onMounted(async () => {
 
           <div v-else-if="isResultEmpty" class="state-panel">
             <p class="state-title">没有匹配结果</p>
-            <p class="state-text">请调整筛选条件或清空搜索关键词后重试。</p>
+            <p class="state-text">{{ emptyHint }}</p>
           </div>
 
           <table v-else class="cyber-table">
@@ -283,14 +341,14 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="text-right font-mono font-bold">
-                  ¥{{ stock.currentPrice.toFixed(2) }}
+                  {{ formatCurrency(stock.currentPrice) }}
                 </td>
-                <td class="text-right font-mono" :class="stock.currentPrice >= stock.prevClose ? 'up' : 'down'">
-                  {{ stock.currentPrice >= stock.prevClose ? '+' : '' }}{{ (stock.currentPrice - stock.prevClose).toFixed(2) }}
+                <td class="text-right font-mono" :class="trendClass(getChange(stock).delta)">
+                  {{ formatSignedCurrency(getChange(stock).delta) }}
                 </td>
-                <td class="text-right font-mono" :class="getRatio(stock) >= 0 ? 'up' : 'down'">
-                  <span class="ratio-pill" :class="getRatio(stock) >= 0 ? 'ratio-up' : 'ratio-down'">
-                    {{ getRatio(stock) >= 0 ? '+' : '' }}{{ getRatio(stock) }}%
+                <td class="text-right font-mono" :class="trendClass(getChange(stock).ratio)">
+                  <span class="ratio-pill" :class="getChange(stock).ratio >= 0 ? 'ratio-up' : 'ratio-down'">
+                    {{ formatPercent(getChange(stock).ratio) }}
                   </span>
                 </td>
                 <td class="text-center">
@@ -300,7 +358,7 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="text-right font-mono text-soft">
-                  ¥{{ (stock.amount / 10000).toFixed(1) }}万
+                  {{ formatCurrency(stock.amount, 0) }}
                 </td>
                 <td class="text-center">
                   <el-button
@@ -319,18 +377,18 @@ onMounted(async () => {
       </div>
 
       <!-- Right: Live Selected Stock Preview Panel -->
-      <div class="stock-preview-card">
+      <div v-if="selectedPreviewStock" class="stock-preview-card">
         <div class="preview-header">
           <div class="preview-title-box">
-            <span class="p-code">{{ marketStore.selectedStock.code }}</span>
-            <h3 class="p-name">{{ marketStore.selectedStock.name }}</h3>
-            <span class="p-dept">{{ marketStore.selectedStock.department }}</span>
+            <span class="p-code">{{ selectedPreviewStock.code }}</span>
+            <h3 class="p-name">{{ selectedPreviewStock.name }}</h3>
+            <span class="p-dept">{{ selectedPreviewStock.department }}</span>
           </div>
           <el-button
             type="primary"
             size="small"
             class="action-btn"
-            @click="goToDetail(marketStore.selectedStock.code)"
+            @click="goToDetail(selectedPreviewStock.code)"
           >
             进入交易与评教
           </el-button>
@@ -339,24 +397,24 @@ onMounted(async () => {
         <div class="preview-stats-grid">
           <div class="stat-item">
             <span class="label">最新价</span>
-            <strong class="val" :class="marketStore.selectedStock.currentPrice >= marketStore.selectedStock.prevClose ? 'up' : 'down'">
-              ¥{{ marketStore.selectedStock.currentPrice.toFixed(2) }}
+            <strong class="val" :class="trendClass(getChange(selectedPreviewStock).delta)">
+              {{ formatCurrency(selectedPreviewStock.currentPrice) }}
             </strong>
           </div>
           <div class="stat-item">
             <span class="label">今日涨跌幅</span>
-            <strong class="val" :class="getRatio(marketStore.selectedStock) >= 0 ? 'up' : 'down'">
-              {{ getRatio(marketStore.selectedStock) >= 0 ? '+' : '' }}{{ getRatio(marketStore.selectedStock) }}%
+            <strong class="val" :class="trendClass(getChange(selectedPreviewStock).ratio)">
+              {{ formatPercent(getChange(selectedPreviewStock).ratio) }}
             </strong>
           </div>
           <div class="stat-item">
             <span class="label">近5节课评教均分</span>
-            <strong class="val gold">★ {{ marketStore.selectedStock.last5AvgRating.toFixed(2) }}</strong>
+            <strong class="val gold">★ {{ selectedPreviewStock.last5AvgRating.toFixed(2) }}</strong>
           </div>
           <div class="stat-item">
             <span class="label">资金净流入</span>
-            <strong class="val" :class="marketStore.selectedStock.netInflow >= 0 ? 'up' : 'down'">
-              {{ marketStore.selectedStock.netInflow >= 0 ? '+' : '' }}¥{{ (marketStore.selectedStock.netInflow / 10000).toFixed(1) }}万
+            <strong class="val" :class="trendClass(selectedPreviewStock.netInflow)">
+              {{ formatSignedCurrency(selectedPreviewStock.netInflow, 0) }}
             </strong>
           </div>
         </div>
@@ -368,15 +426,20 @@ onMounted(async () => {
             <span class="chart-sub">红涨绿跌 · 包含MA5/MA10/MA20均线</span>
           </div>
           <KLineChart
-            :data="marketStore.klineCache[marketStore.selectedStock.code] || []"
-            :stock-name="marketStore.selectedStock.name"
+            :data="marketStore.getKLineByCode(selectedPreviewStock.code)"
+            :stock-name="selectedPreviewStock.name"
           />
         </div>
 
         <div class="stock-intro-box">
           <div class="intro-title">教师与课程背景：</div>
-          <p class="intro-text">{{ marketStore.selectedStock.description }}</p>
+          <p class="intro-text">{{ selectedPreviewStock.description }}</p>
         </div>
+      </div>
+
+      <div v-else class="stock-preview-card preview-empty">
+        <p class="state-title">当前无预览标的</p>
+        <p class="state-text">行情数据准备完成后，将在此展示所选课程标的的关键指标。</p>
       </div>
     </div>
   </div>
@@ -564,6 +627,11 @@ onMounted(async () => {
   width: 260px;
 }
 
+:deep(.el-select__wrapper),
+:deep(.el-input__wrapper) {
+  border-radius: 10px;
+}
+
 .toolbar-right {
   display: flex;
   align-items: center;
@@ -611,6 +679,11 @@ onMounted(async () => {
 
 .stock-list-container {
   overflow-x: auto;
+}
+
+.preview-empty {
+  justify-content: center;
+  min-height: 220px;
 }
 
 .cyber-table {
@@ -893,6 +966,31 @@ onMounted(async () => {
     width: 100%;
     justify-content: space-between;
     flex-wrap: wrap;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .sort-box {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 760px) {
+  .tabs-group {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .tab-btn {
+    flex: 0 0 auto;
+  }
+
+  .preview-stats-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

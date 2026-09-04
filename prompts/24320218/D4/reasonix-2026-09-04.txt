@@ -1,0 +1,99 @@
+Reasonix 对话记录（导出）
+日期：2026-09-04
+成员：24320218（评教与任务激励模块负责人，署名如需补全请自行添加）
+工具：Reasonix（本地智能体）
+项目：学林街之狼（24320230 课程仓库，工作分支 24320218）
+
+说明：本文件为当天会话要点导出版（承接 D3 导出之后），按“用户请求 → 执行/答复要点 → 结果/决策”整理，便于日报归档、复盘与团队同步。完整动作以代码改动、构建、命令与 Git 提交记录为准。
+
+================================================================
+记录 1：完成 Day4 任务（接口契约 + 规则单测 + 状态完善）
+================================================================
+
+用户提示：
+按照计划完成 D4 的任务。
+
+执行要点：
+1. 基线核对：24320218 自 2b17ed1（白屏修复）后本模块文件零改动（git diff 为空），异步行情架构仅涉行情侧；
+   确认可在 D3 产物上直接推进 D4。
+2. 接口契约（R11 模块内落地，草案 v0.1）：
+   - 新增 src/api/evaluationTaskApi.ts：SignIn/SubmitEvaluation/AdvanceTask/ClaimTask/EvaluationQuery+Page
+     请求响应类型 + evaluationTaskApi 骨架（未接入即抛错防误用），TaskTrigger/EvaluationStatus 复用 src/types；
+   - 新增 docs/24320230/API契约-评教与任务模块.md：设计原则（页面只消费 store、store 为替换点、rules.ts 为前后端规则基准）、
+     端点幂等语义、每日结算时序、接入清单 TODO。
+3. 规则可测化（R14）：rules.ts 新增 shouldResetDaily/resetDailyTask/autoCompleteLoginTask（泛型纯函数、不修改入参）；
+   stores/task.ts ensureFreshDay 改消费纯函数；tests/rules.test.ts 7→10 用例。
+4. 状态完善（R15 模块内）：EvaluationView 评教提交按钮 isSubmitting loading/防连点（500ms 模拟延迟）、课程列表空态；
+   TaskView 收支流水空态。
+5. 验证：npm test 10/10；vue-tsc 本批模块零错（期间修复泛型签名 TS2322：改 <T extends DailyTaskState>(task:T):T）；
+   npm run build ✓；dev 冒烟全 200；补 daily/24320218/D4.md。
+
+关键决策（用户）：无新决策，按 D4 计划执行。
+
+================================================================
+记录 2：机制讲解问答（ECharts 按需引入 / 聚合窗口一处生效 / 推演卡片数据驱动）
+================================================================
+
+1) ECharts“按需引入”到底省了什么？
+答复要点：
+- 全量 import * from 'echarts' = 全部图表+组件+渲染器进包且难 tree-shaking；按需 = echarts/core + use([LineChart, Grid, Tooltip, MarkLine, CanvasRenderer])。
+- 收益分四层：产物体积（全量约 1MB+）、初始化注册开销、依赖意图可读、组件可移植性。
+- 诚实现状：KLineChart.vue 仍全量引入 → ECharts 整体仍进 bundle（dist 中 KLineChart chunk 1.12MB），
+  RatingTrendChart 的按需收益暂被共享抵消；整包收益待 R16（KLineChart 按需化）兑现。
+
+2)“聚合窗口只改一处”现在成立了吗？
+答复要点（基于全项目 grep）：
+- 成立：窗口值 5 仅存于 rules.ts RATING_WINDOW；聚合截断/图表取数/x 轴标签/空态与推演文案均自动联动（Day3 收口完成）。
+- 残留：StockDetailView 两处静态“近5讲”文案（纯文字，跨模块未改）；ProfileView slice(0,5) 语义为“流水前5条”勿误改；
+  market.ts 收盘公式仍与 rules.calcRatingFactorEarning 双份拷贝（另一收口项）。
+
+3) 推演卡片“数据驱动”后和原来差在哪？
+答复要点：
+- 旧：写死的“若 5 星将拉升…”教学假设句；新：读取当前课程关联标的真实 last5AvgRating/ratingCount，
+  经 calcRatingFactorEarning 实时输出 ±X.XX% 与看多/看空，切换课程即刷新，无标的时有兜底文案。
+- 数字（窗口/α/中性值）改用常量插值，避免公式与文案漂移。
+
+================================================================
+记录 3：今日分支演进梳理
+================================================================
+
+用户提示：
+今天的分支经历了什么？
+
+答复要点（git log 实证，2026-09-03 09-04）：
+- 14:21 组长 main 7838a69 合并冲突修复（回退损坏重写页、接通 scheduleImport）；
+- 14:26 本分支 bb028af merge origin/main（补装 xlsx）恢复构建；
+- 14:51 本分支推送 5 提交：d6ae5f6 组件/推演、f5c8a3c 任务跨天+EXTERNAL 兜底、8a1b82a 待领提示、
+  88a42b4 rules 单测、70fe162 D3 日报；
+- 14:54 他人 3b76489 同修 Market/StockDetail 类型导入；
+- 14:59 本分支 2b17ed1 白屏修复（补 router vue-router 导入 + 类型导入）；
+- 15:04-15:41 main 持续更新（异步行情架构 34411d0、文案修正、演示脚本、路由初始化修复）→ 两次再 merge；
+- 15:41 0944ec6 D3 对话记录；09-04 13:35 3965f58 压缩 D1-D3 日报。
+- 现状：HEAD=3965f58 本地与 origin/24320218 一致；D4 成果在工作区待提交。
+
+================================================================
+记录 4：仓库同步与文档留痕
+================================================================
+
+用户提示：
+按照前面的流程，先同步一下仓库，然后写今天的文档（daily/24320218/D4.md 改为当前对话内容，聊天记录写入 prompts/24320218/D4）。
+
+执行结果：
+- git fetch origin：origin/main 更新（他组成员 daily/prompts 文档 + ranking 微调）；git merge origin/main 无冲突；
+- 重写 daily/24320218/D4.md 为当前对话完整内容（含 D3 收口、白屏复盘、D4 工程化、机制问答、验证与遗留）；
+- 本文件导出至 prompts/24320218/D4/。
+
+================================================================
+当天成果与状态
+================================================================
+
+- 代码：D4 接口契约（src/api + 契约文档）、每日结算规则纯函数化与 10 用例单测、页面 loading/空态。
+- 验证：npm test 10/10、vue-tsc 零错、npm run build ✓、dev 冒烟 200。
+- Git：仓库已同步（merge origin/main），本模块 D4 改动未提交待处理。
+- 文档：daily/24320218/D4.md、prompts/24320218/D4/。
+
+当天使用的主要命令：
+- git fetch origin / git merge origin/main --no-edit
+- npm test / npm run build / npm run dev
+- npx -y -p typescript@5.9.3 -p vue-tsc@2.2.10 vue-tsc --noEmit -p tsconfig.json
+- curl 冒烟、git diff/log 核验

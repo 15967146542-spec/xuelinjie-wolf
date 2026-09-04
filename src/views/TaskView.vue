@@ -223,6 +223,9 @@ function handleClaim(taskId: number) {
           </div>
 
           <div class="ledger-list">
+            <div v-if="userStore.ledgers.length === 0" class="empty-tip">
+              暂无奖励与收支流水，完成任务后奖励将在此展示
+            </div>
             <div v-for="item in userStore.ledgers" :key="item.id" class="ledger-item">
               <div class="l-left">
                 <strong class="l-title">{{ item.title }}</strong>
@@ -534,6 +537,15 @@ function handleClaim(taskId: number) {
   background: rgba(148, 163, 184, 0.08);
   padding: 4px 10px;
   border-radius: 6px;
+}
+
+.empty-tip {
+  padding: 18px 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #64748b;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
 }
 
 .ledger-list {

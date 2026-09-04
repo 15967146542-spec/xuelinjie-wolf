@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   applyRatingAggregation,
+  autoCompleteLoginTask,
   calcRatingFactorEarning,
   clampRating,
   EVALUATION_MAX_RATING,
@@ -15,6 +16,8 @@ import {
   NEUTRAL_RATING,
   RATING_EMA_NEW_WEIGHT,
   RATING_WINDOW,
+  resetDailyTask,
+  shouldResetDaily,
   SIGNIN_REWARD
 } from '../src/rules.ts'
 
@@ -69,4 +72,37 @@ test('因子推演公式 E = α × (R̄ − 3) / 2', () => {
   assert.ok(Math.abs(calcRatingFactorEarning(5) - 0.02) < 1e-9) // 5★ → +2%
   assert.equal(calcRatingFactorEarning(3), 0)                    // 中性 → 0
   assert.ok(Math.abs(calcRatingFactorEarning(1) + 0.02) < 1e-9) // 1★ → -2%
+})
+
+// ---------------------------------------------------------------------------
+// 每日任务结算规则
+// ---------------------------------------------------------------------------
+
+test('每日结算：仅当存在上次日期且跨天时才重置（首次打开保留演示数据）', () => {
+  assert.equal(shouldResetDaily(null, '2026-9-3'), false)
+  assert.equal(shouldResetDaily('2026-9-2', '2026-9-2'), false)
+  assert.equal(shouldResetDaily('2026-9-2', '2026-9-3'), true)
+})
+
+test('每日结算：DAILY 任务归零且不修改入参', () => {
+  const t = { type: 'DAILY', trigger: 'CLASS_SIGNIN', current: 2, target: 3, isClaimed: false }
+  const r = resetDailyTask(t)
+  assert.equal(r.current, 0)
+  assert.equal(r.isClaimed, false)
+  assert.equal(r.target, 3) // 目标不变
+  assert.equal(t.current, 2) // 入参未被修改
+})
+
+test('每日结算：DAILY_LOGIN 任务当日自动达成（仅未领取且未达标时）', () => {
+  const login = { type: 'DAILY', trigger: 'DAILY_LOGIN', current: 0, target: 1, isClaimed: false }
+  assert.equal(autoCompleteLoginTask(login).current, 1)
+
+  const claimed = { ...login, isClaimed: true }
+  assert.equal(autoCompleteLoginTask(claimed).current, 0) // 已领取不再补
+
+  const other = { type: 'DAILY', trigger: 'MAKE_TRADE', current: 0, target: 1, isClaimed: false }
+  assert.equal(autoCompleteLoginTask(other).current, 0) // 非登录任务不受影响
+
+  const semester = { type: 'SEMESTER', trigger: undefined, current: 0, target: 1, isClaimed: false }
+  assert.equal(autoCompleteLoginTask(semester).current, 0) // 非 DAILY 不受影响
 })
