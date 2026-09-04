@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEvaluationStore } from '@/stores/evaluation'
 import { useUserStore } from '@/stores/user'
@@ -30,10 +30,12 @@ const userStore = useUserStore()
 const marketStore = useMarketStore()
 
 const requestedSessionId = route.query.session as string | undefined
+const requestedTeacherCode = route.query.teacher as string | undefined
 const selectedSessionId = ref<string>(
   evaluationStore.courses.some((c) => c.id === requestedSessionId)
     ? (requestedSessionId as string)
-    : (evaluationStore.courses[0]?.id || '')
+    : (evaluationStore.courses.find((c) => c.stockCode === requestedTeacherCode)?.id ||
+        evaluationStore.courses[0]?.id || '')
 )
 const rating = ref<number>(5)
 const hoverRating = ref<number>(0)
@@ -138,6 +140,10 @@ function handleSubmitEvaluation() {
     ElMessage.error(res.message)
   }
 }
+
+onMounted(async () => {
+  await marketStore.bootstrapMarket()
+})
 </script>
 
 <template>
