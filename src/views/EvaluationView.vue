@@ -83,6 +83,16 @@ function toggleTag(tag: string) {
   }
 }
 
+function selectSession(sessionId: string) {
+  selectedSessionId.value = sessionId
+}
+
+function handleSessionKeydown(event: KeyboardEvent, sessionId: string) {
+  if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return
+  event.preventDefault()
+  selectSession(sessionId)
+}
+
 function handleSignIn(sessionId: string) {
   ElMessageBox.confirm(
     `将完成「${evaluationStore.courses.find((c) => c.id === sessionId)?.courseName || '本课'}」的模拟课堂扫码打卡，确认签到？签到成功可获 +${SIGNIN_REWARD} 学币，并推进每日任务进度。`,
@@ -191,7 +201,11 @@ async function handleSubmitEvaluation() {
             :key="session.id"
             class="session-card"
             :class="{ active: session.id === selectedSessionId }"
-            @click="selectedSessionId = session.id"
+            role="button"
+            tabindex="0"
+            :aria-pressed="session.id === selectedSessionId"
+            @click="selectSession(session.id)"
+            @keydown="handleSessionKeydown($event, session.id)"
           >
             <div class="session-top">
               <span class="stock-code-tag">{{ session.stockCode }}</span>
@@ -480,6 +494,11 @@ async function handleSubmitEvaluation() {
 .session-card:hover {
   background: rgba(56, 189, 248, 0.05);
   border-color: rgba(56, 189, 248, 0.3);
+}
+
+.session-card:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.65);
+  outline-offset: 3px;
 }
 
 .session-card.active {
