@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import type { UserRole } from '@/types'
+import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -22,43 +24,43 @@ const routes: RouteRecordRaw[] = [
     path: '/trade',
     name: 'Trade',
     component: () => import('@/views/TradeView.vue'),
-    meta: { title: '模拟交易终端 · 学林街之狼' }
+    meta: { title: '模拟交易终端 · 学林街之狼', roles: ['STUDENT', 'EXTERNAL', 'ADMIN'] }
   },
   {
     path: '/evaluation',
     name: 'Evaluation',
     component: () => import('@/views/EvaluationView.vue'),
-    meta: { title: '评教中心 · 学林街之狼' }
+    meta: { title: '评教中心 · 学林街之狼', roles: ['STUDENT', 'TEACHER', 'ADMIN'] }
   },
   {
     path: '/courses',
     name: 'Courses',
     component: () => import('@/views/MyCoursesView.vue'),
-    meta: { title: '我的课程 · 学林街之狼' }
+    meta: { title: '我的课程 · 学林街之狼', roles: ['STUDENT', 'ADMIN'] }
   },
   {
     path: '/tasks',
     name: 'Tasks',
     component: () => import('@/views/TaskView.vue'),
-    meta: { title: '任务与奖励中心 · 学林街之狼' }
+    meta: { title: '任务与奖励中心 · 学林街之狼', roles: ['STUDENT', 'ADMIN'] }
   },
   {
     path: '/rankings',
     name: 'Rankings',
     component: () => import('@/views/RankingView.vue'),
-    meta: { title: '风云排行榜 · 学林街之狼' }
+    meta: { title: '风云排行榜 · 学林街之狼', roles: ['STUDENT', 'EXTERNAL', 'ADMIN'] }
   },
   {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'),
-    meta: { title: '个人资产与特权 · 学林街之狼' }
+    meta: { title: '个人资产与特权 · 学林街之狼', roles: ['STUDENT', 'EXTERNAL', 'ADMIN'] }
   },
   {
     path: '/admin',
     name: 'Admin',
     component: () => import('@/views/AdminView.vue'),
-    meta: { title: '风控后台 · 学林街之狼' }
+    meta: { title: '风控后台 · 学林街之狼', roles: ['ADMIN'] }
   }
 ]
 
@@ -73,6 +75,11 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   if (to.meta.title) {
     document.title = to.meta.title as string
+  }
+  const roles = to.meta.roles as UserRole[] | undefined
+  if (roles && !roles.includes(useUserStore().user.role)) {
+    next({ path: '/market', query: { forbidden: '1' } })
+    return
   }
   next()
 })
