@@ -28,12 +28,16 @@ export const useRankingStore = defineStore('ranking', () => {
   })
 
   const campusRankings = computed(() => {
-    return liveRankings.value.filter((u) => u.userRole === 'STUDENT')
-  })
-
+    return liveRankings.value
+      .filter((u) => u.userRole === 'STUDENT')
+      .sort((a, b) => b.totalAsset - a.totalAsset); // 按总资产降序排序
+  });
+  
   const externalRankings = computed(() => {
-    return liveRankings.value.filter((u) => u.userRole === 'EXTERNAL')
-  })
+    return liveRankings.value
+      .filter((u) => u.userRole === 'EXTERNAL')
+      .sort((a, b) => b.totalAsset - a.totalAsset); // 按总资产降序排序
+  });
 
   const dailyProfitRankings = computed(() => {
     return [...liveRankings.value].sort((a, b) => b.dailyProfitRatio - a.dailyProfitRatio)
