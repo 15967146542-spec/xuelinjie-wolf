@@ -408,7 +408,7 @@ onMounted(async () => {
       </div>
 
       <!-- Right Column: Quick Trading Order Ticket & Current Holding -->
-      <div class="detail-right">
+      <div v-if="userStore.canUse('TRADE')" class="detail-right">
         <!-- 1. Order Ticket Card -->
         <div class="panel-card trade-ticket-card">
           <div class="panel-title-bar">

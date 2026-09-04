@@ -58,6 +58,8 @@ const currentSession = computed(() => {
   return evaluationStore.courses.find((c) => c.id === selectedSessionId.value) || evaluationStore.courses[0]
 })
 
+const canWriteEvaluation = computed(() => userStore.canUse('EVALUATION_WRITE'))
+
 // 选中课程的实时因子推演：读取其关联标的的真实近 RATING_WINDOW 讲均值，
 // 按 E = α × (R̄ − NEUTRAL) / 2 计算次日基本面因子收益，替代写死的机制文案
 const factorPreview = computed(() => {
@@ -198,7 +200,7 @@ function handleSubmitEvaluation() {
                 <CheckCircle2 :size="14" /> 已签到打卡
               </div>
               <button
-                v-else
+                v-else-if="canWriteEvaluation"
                 class="signin-action-btn"
                 @click.stop="handleSignIn(session.id)"
               >
@@ -226,10 +228,10 @@ function handleSubmitEvaluation() {
           </span>
         </div>
 
-        <!-- Role check warning if External User -->
-        <div v-if="userStore.user.role === 'EXTERNAL'" class="role-warning-banner">
+        <!-- 教师可阅读评价数据，但不具备签到与写入权限。 -->
+        <div v-if="!canWriteEvaluation" class="role-warning-banner">
           <Lock :size="16" />
-          <span>您当前处于【校外用户】模式，无法参与校内课程评教。可顶部切换为【校内学生】进行测试。</span>
+          <span>您当前处于只读模式，可查看课程评价与因子推演；签到、评教和学币奖励仅面向校内学生。</span>
         </div>
 
         <div v-else-if="!currentSession.isSigned" class="not-signed-notice">

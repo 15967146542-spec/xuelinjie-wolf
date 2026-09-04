@@ -2,8 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AsyncStatus, TeacherStock, KLinePoint, MacroFactor, NextDayProjection } from '@/types'
 import { initialStocks, initialMacroFactor, generateKLineData } from '@/mock/initialData'
+import { useUserStore } from './user'
 
 export const useMarketStore = defineStore('market', () => {
+  const userStore = useUserStore()
   const stocks = ref<TeacherStock[]>([])
   const selectedCode = ref<string>('1005') // Default to 计网赵
   const macroFactor = ref<MacroFactor>({ ...initialMacroFactor })
@@ -138,6 +140,7 @@ export const useMarketStore = defineStore('market', () => {
 
   // Admin trigger to execute next-day settlement
   function settleNextTradingDay() {
+    if (!userStore.canUse('RISK_ADMIN')) return false
     stocks.value.forEach((stock) => {
       const proj = calculateNextDayProjection(stock)
       const oldPrice = stock.currentPrice
@@ -163,13 +166,16 @@ export const useMarketStore = defineStore('market', () => {
         volume: stock.volume
       })
     })
+    return true
   }
 
   function updateMacroFactor(indexVal: number, title: string, desc: string) {
+    if (!userStore.canUse('RISK_ADMIN')) return false
     macroFactor.value.indexValue = indexVal
     macroFactor.value.title = title
     macroFactor.value.description = desc
     macroFactor.value.updatedAt = new Date().toLocaleString()
+    return true
   }
 
   return {

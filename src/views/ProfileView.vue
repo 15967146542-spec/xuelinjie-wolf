@@ -29,17 +29,23 @@ const rechargeTiers = [
 ]
 
 function handleRecharge(tier: { cny: number; coins: number }) {
-  userStore.rechargeCoins(tier.cny)
-  ElMessage.success(`模拟充值成功！已到账 +${tier.coins} 学币`)
+  const result = userStore.rechargeCoins(tier.cny)
+  if (result.success) ElMessage.success(`模拟充值成功！已到账 +${tier.coins} 学币`)
+  else ElMessage.warning(result.message)
 }
 
 function handleBuyMonthCard() {
+  if (userStore.user.role === 'TEACHER') {
+    ElMessage.warning('授课教师为只读身份，不能开通月卡')
+    return
+  }
   if (userStore.user.monthCardActive) {
     ElMessage.info('您的月卡仍在有效期内')
     return
   }
-  userStore.purchaseMonthCard()
-  ElMessage.success('已开通月卡！已解锁交易特权、手续费5折及每日领取权益')
+  const result = userStore.purchaseMonthCard()
+  if (result.success) ElMessage.success('已开通月卡！已解锁交易特权、手续费5折及每日领取权益')
+  else ElMessage.warning(result.message)
 }
 </script>
 
@@ -98,7 +104,7 @@ function handleBuyMonthCard() {
               <span class="priv-icon">🔓</span>
               <div>
                 <strong>解锁交易权限</strong>
-                <small>校外用户必备，开通即可模拟操盘</small>
+                <small>开通后即可享受模拟操盘增值权益</small>
               </div>
             </div>
             <div class="priv-item">
@@ -134,7 +140,7 @@ function handleBuyMonthCard() {
         </div>
 
         <!-- 2. Coin Recharge Tiers (1 CNY = 100 Coins) -->
-        <div class="profile-panel recharge-panel">
+        <div v-if="userStore.canUse('RECHARGE')" class="profile-panel recharge-panel">
           <div class="p-header-line">
             <div class="t-wrap">
               <ShoppingBag :size="18" class="text-blue" />
@@ -162,7 +168,7 @@ function handleBuyMonthCard() {
       <!-- Right: Campus Identity Verification & Ledger -->
       <div class="profile-right">
         <!-- Campus Student Verification -->
-        <div class="profile-panel verify-panel">
+        <div v-if="userStore.user.role === 'STUDENT' || userStore.user.role === 'ADMIN'" class="profile-panel verify-panel">
           <div class="p-header-line">
             <div class="t-wrap">
               <GraduationCap :size="18" class="text-cyan" />
@@ -178,7 +184,7 @@ function handleBuyMonthCard() {
             </div>
             <div class="field-line">
               <span class="f-name">统一认证学号</span>
-              <span class="f-val font-mono">{{ userStore.user.studentId || '20230910408' }}</span>
+              <span class="f-val font-mono">{{ userStore.user.studentId }}</span>
             </div>
             <div class="field-line">
               <span class="f-name">所属学院专业</span>
