@@ -12,6 +12,7 @@ import type {
   Order,
   Position
 } from '@/types'
+import { allTeachers } from './allTeachers.generated'
 
 export const initialMacroFactor: MacroFactor = {
   id: 'macro-2026-09',
@@ -201,7 +202,8 @@ export const initialStocks: TeacherStock[] = [
     description: '紧跟前沿论文与开源生态，GPU算力充足，资金关注度极高，近期持续涨停。',
     isWatchlisted: true,
     recentRatings: [5.0, 5.0, 4.9, 5.0, 4.9]
-  }
+  },
+  ...allTeachers
 ]
 
 export function generateKLineData(basePrice: number, days = 30): KLinePoint[] {
