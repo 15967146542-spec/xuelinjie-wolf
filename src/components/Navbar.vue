@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore, type UserFeature } from '@/stores/user'
 import { useMarketStore } from '@/stores/market'
@@ -56,8 +56,29 @@ const navLinks: NavLink[] = [
   { name: '风控后台', path: '/admin', icon: ShieldAlert, feature: 'RISK_ADMIN' }
 ]
 
+const roleOptions: Array<{ role: UserRole; label: string }> = [
+  { role: 'STUDENT', label: '校内学生' },
+  { role: 'EXTERNAL', label: '校外用户' },
+  { role: 'TEACHER', label: '授课教师' },
+  { role: 'ADMIN', label: '管理员' }
+]
+
+const visibleNavLinks = computed(() => navLinks.filter((link) => {
+  if (link.feature) return userStore.canUse(link.feature)
+  return !link.roles || link.roles.includes(userStore.user.role)
+}))
+
+function isActive(path: string) {
+  if (path === '/market') return route.path === '/market' || route.path.startsWith('/stock/')
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
+
 function handleRoleChange(role: UserRole) {
   userStore.setRole(role)
+  mobileOpen.value = false
+
+  const allowedRoles = route.meta.roles as UserRole[] | undefined
+  if (allowedRoles && !allowedRoles.includes(role)) router.replace('/market')
 }
 </script>
 
@@ -155,7 +176,7 @@ function handleRoleChange(role: UserRole) {
       <div v-if="mobileOpen" class="mobile-menu">
         <nav class="mobile-links">
           <router-link
-            v-for="link in navLinks"
+            v-for="link in visibleNavLinks"
             :key="link.path"
             :to="link.path"
             class="mobile-link"
