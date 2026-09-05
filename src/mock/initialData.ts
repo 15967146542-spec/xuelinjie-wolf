@@ -12,6 +12,7 @@ import type {
   Order,
   Position
 } from '@/types'
+import { allTeachers } from './allTeachers.generated'
 
 export const initialMacroFactor: MacroFactor = {
   id: 'macro-2026-09',
@@ -201,7 +202,8 @@ export const initialStocks: TeacherStock[] = [
     description: '紧跟前沿论文与开源生态，GPU算力充足，资金关注度极高，近期持续涨停。',
     isWatchlisted: true,
     recentRatings: [5.0, 5.0, 4.9, 5.0, 4.9]
-  }
+  },
+  ...allTeachers
 ]
 
 export function generateKLineData(basePrice: number, days = 30): KLinePoint[] {
@@ -260,11 +262,10 @@ export const initialUser: UserProfile = {
   name: '林予',
   department: '计算机学院 · 软件工程系',
   role: 'STUDENT',
-  balance: 14680,
-  frozenCoins: 650,
+  balance: 10000,
+  frozenCoins: 0,
   gpa: 3.92,
-  monthCardActive: true,
-  monthCardExpire: '2026-10-01',
+  monthCardActive: false,
   battlePassLevel: 14,
   battlePassExp: 840,
   avatarFrame: '荣耀先锋·金框'

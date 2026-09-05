@@ -24,8 +24,9 @@ const macroTitle = ref(marketStore.macroFactor.title)
 const macroDesc = ref(marketStore.macroFactor.description)
 
 function handleSaveMacro() {
-  marketStore.updateMacroFactor(macroIndex.value, macroTitle.value, macroDesc.value)
-  ElMessage.success('宏观因子参数已全局生效更新！')
+  if (marketStore.updateMacroFactor(macroIndex.value, macroTitle.value, macroDesc.value)) {
+    ElMessage.success('宏观因子参数已全局生效更新！')
+  }
 }
 
 function handleTriggerSettlement() {
@@ -38,7 +39,7 @@ function handleTriggerSettlement() {
       type: 'warning'
     }
   ).then(() => {
-    marketStore.settleNextTradingDay()
+    if (!marketStore.settleNextTradingDay()) return
     tradeStore.unlockTPlusOne()
     tradeStore.syncPositionPrices()
     ElMessage.success('收盘清算完成！股价已根据基本面因子完成更新，T+1持仓已全部解锁可卖。')

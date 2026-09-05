@@ -56,15 +56,13 @@ export const useTradeStore = defineStore('trade', () => {
 
   // Buy order execution
   function executeBuy(stockCode: string, shares: number): ActionResult {
+    if (!userStore.canUse('TRADE')) {
+      return { success: false, message: '当前身份仅可阅读行情与评价，不能进行模拟交易' }
+    }
     if (shares <= 0) return { success: false, message: '买入股数必须大于0' }
 
     const stock = marketStore.stocks.find((s) => s.code === stockCode)
     if (!stock) return { success: false, message: '标的不存在' }
-
-    // External user permission check
-    if (userStore.user.role === 'EXTERNAL' && !userStore.user.monthCardActive) {
-      return { success: false, message: '校外用户需开通月卡或通行证解锁模拟交易权限' }
-    }
 
     const price = stock.currentPrice
     const tradeAmount = Number((price * shares).toFixed(2))
@@ -158,6 +156,9 @@ export const useTradeStore = defineStore('trade', () => {
 
   // Sell order execution
   function executeSell(stockCode: string, shares: number): ActionResult {
+    if (!userStore.canUse('TRADE')) {
+      return { success: false, message: '当前身份仅可阅读行情与评价，不能进行模拟交易' }
+    }
     if (shares <= 0) return { success: false, message: '卖出股数必须大于0' }
 
     const stock = marketStore.stocks.find((s) => s.code === stockCode)

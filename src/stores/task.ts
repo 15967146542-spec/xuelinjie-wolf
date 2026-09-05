@@ -63,9 +63,15 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function claimTaskReward(taskId: number): { success: boolean; message: string } {
+    if (!userStore.canUse('TASKS')) {
+      return { success: false, message: '当前身份无任务奖励权限' }
+    }
     ensureFreshDay()
     const task = tasks.value.find((t) => t.id === taskId)
     if (!task) return { success: false, message: '任务不存在' }
+    if (task.title.includes('绩点') && !userStore.canUse('GPA_REWARD')) {
+      return { success: false, message: '仅校内学生可凭绩点兑换学币' }
+    }
     if (task.isClaimed) return { success: false, message: '该任务奖励已领取' }
     if (task.current < task.target) return { success: false, message: '任务目标尚未完成' }
 

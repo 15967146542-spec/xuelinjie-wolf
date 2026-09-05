@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+import { useUserStore, type UserFeature } from '@/stores/user'
 import { useMarketStore } from '@/stores/market'
 import { useTradeStore } from '@/stores/trade'
 import type { UserRole } from '@/types'
@@ -37,31 +37,48 @@ watch(
   }
 )
 
-const navLinks = [
+interface NavLink {
+  name: string
+  path: string
+  icon: Component
+  feature?: UserFeature
+  roles?: UserRole[]
+}
+
+const navLinks: NavLink[] = [
   { name: '行情大厅', path: '/market', icon: LineChart },
-  { name: '模拟交易', path: '/trade', icon: ArrowLeftRight },
-  { name: '评价中心', path: '/evaluation', icon: MessageSquareCheck },
-  { name: '我的课程', path: '/courses', icon: BookOpen },
-  { name: '任务奖励', path: '/tasks', icon: CheckSquare },
-  { name: '风云榜单', path: '/rankings', icon: Trophy },
-  { name: '个人资产', path: '/profile', icon: User },
-  { name: '风控后台', path: '/admin', icon: ShieldAlert }
+  { name: '模拟交易', path: '/trade', icon: ArrowLeftRight, feature: 'TRADE' },
+  { name: '评价中心', path: '/evaluation', icon: MessageSquareCheck, roles: ['STUDENT', 'TEACHER', 'ADMIN'] },
+  { name: '我的课程', path: '/courses', icon: BookOpen, feature: 'COURSES' },
+  { name: '任务奖励', path: '/tasks', icon: CheckSquare, feature: 'TASKS' },
+  { name: '风云榜单', path: '/rankings', icon: Trophy, feature: 'RANKINGS' },
+  { name: '个人资产', path: '/profile', icon: User, feature: 'PROFILE' },
+  { name: '风控后台', path: '/admin', icon: ShieldAlert, feature: 'RISK_ADMIN' }
 ]
 
 const roleOptions: Array<{ role: UserRole; label: string }> = [
-  { role: 'STUDENT', label: '校内学生 (全功能+初始1万)' },
-  { role: 'EXTERNAL', label: '校外用户 (付费/充值机制)' },
-  { role: 'TEACHER', label: '授课教师 (只读行情与评教)' },
-  { role: 'ADMIN', label: '管理员 (风控与宏观因子)' }
+  { role: 'STUDENT', label: '校内学生' },
+  { role: 'EXTERNAL', label: '校外用户' },
+  { role: 'TEACHER', label: '授课教师' },
+  { role: 'ADMIN', label: '管理员' }
 ]
 
+const visibleNavLinks = computed(() => navLinks.filter((link) => {
+  if (link.feature) return userStore.canUse(link.feature)
+  return !link.roles || link.roles.includes(userStore.user.role)
+}))
+
 function isActive(path: string) {
-  return currentPath.value === path || (path !== '/' && currentPath.value.startsWith(path))
+  if (path === '/market') return route.path === '/market' || route.path.startsWith('/stock/')
+  return route.path === path || route.path.startsWith(`${path}/`)
 }
 
 function handleRoleChange(role: UserRole) {
   userStore.setRole(role)
   mobileOpen.value = false
+
+  const allowedRoles = route.meta.roles as UserRole[] | undefined
+  if (allowedRoles && !allowedRoles.includes(role)) router.replace('/market')
 }
 </script>
 
@@ -94,7 +111,7 @@ function handleRoleChange(role: UserRole) {
     <!-- Main Navigation Items (desktop) -->
     <nav class="nav-links">
       <router-link
-        v-for="link in navLinks"
+        v-for="link in visibleNavLinks"
         :key="link.path"
         :to="link.path"
         class="nav-item"
@@ -125,7 +142,7 @@ function handleRoleChange(role: UserRole) {
       </el-dropdown>
 
       <!-- Balance & Asset Capsule -->
-      <div class="user-capsule" @click="router.push('/profile')">
+      <div v-if="userStore.canUse('PROFILE')" class="user-capsule" @click="router.push('/profile')">
         <div class="avatar-ring">
           <img src="https://api.dicebear.com/7.x/bottts/svg?seed=wolf07" alt="avatar" />
         </div>
@@ -159,7 +176,7 @@ function handleRoleChange(role: UserRole) {
       <div v-if="mobileOpen" class="mobile-menu">
         <nav class="mobile-links">
           <router-link
-            v-for="link in navLinks"
+            v-for="link in visibleNavLinks"
             :key="link.path"
             :to="link.path"
             class="mobile-link"
