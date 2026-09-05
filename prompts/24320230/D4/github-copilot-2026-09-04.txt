@@ -4,4 +4,72 @@ GitHub Copilot 提示词记录
 工具：GitHub Copilot（VS Code）
 项目：学林街之狼
 
-待补充实际提示词、问题修复过程、测试记录更新和构建证据。
+================================================================
+记录 1：清理未来日期记录并复核 D3 修复交付性
+================================================================
+
+用户提示：
+完成D4目标，给出daily日报，prompts提示词记录（需要导出处理呢）最终版，然后提交。
+
+与 AI 的协作过程：
+1. 检查 daily/24320230 目录，确认 D5.md、D6.md 已为通用模板（# D5 日报模板 / # D6 日报模板），不存在未来日期污染。
+2. 复核 D3 构建阻断问题修复范围：src/router/index.ts 仅保留一条 /courses 路由，MyCoursesView.vue 正常引用 parseIcs / parseXlsx / matchScheduleEntry，课程导入工具与评教 store 的 importCourses / matchScheduleEntry 连通正常。
+3. 确认 initialData.ts 与类型定义无重复导出冲突，项目当前版本仍可用于演示和集成验收。
+
+执行结果：
+- D5/D6 未来日期文件保持纯净模板。
+- D3 的构建、路由、课程导入工具和页面联动修复均已落地。
+- 项目入口、导航和共享文件无重复导出冲突。
+
+================================================================
+记录 2：修复评教跳转定位并完成 Gitee 全量合流
+================================================================
+
+用户提示：
+（承接合流任务）拉取最新项目进度并检查合并结果，修复合并后的构建与跳转问题。
+
+与 AI 的协作过程：
+1. 修复合并后的评教跳转问题：课程页传入 teacher 标的代码，但评教页原先只读取 session 导致可能选错课程；已改为按标的代码定位对应课程，并在评教页直达时初始化行情数据，保证因子预览可用。
+2. 执行 git fetch origin && git merge origin/main，与 Gitee 完成 47 个远端提交的全量合流。
+3. 定位唯一冲突文件 src/views/EvaluationView.vue：远端侧该文件的上游合并本身已损坏——脚本段残留未闭合的 submitEvaluation，并粘入引用未定义符号（currentSession / selectedTags / isSubmitting / SIGNIN_REWARD / ElMessageBox）的旧版代码。
+4. 按“当日最小改动”原则解决冲突：保留远端重构后的教师评分榜布局与全部展开交互行为，重写 <script setup> 为纯函数引用（courseFor / reviewsFor / selectTeacher / submitEvaluation），清理全部语法残骸，并保留按 teacher 标的代码直达定位旧修复。
+5. 删除中间对比临时文件，标记冲突已解决；全量暂存 57 个文件并确认无未解决冲突，创建合并提交 fa2135a 并推送至 Gitee（5d5b79a..fa2135a）。
+
+执行结果：
+- 与 Gitee origin/main 47 个远端提交的合流完成。
+- src/views/EvaluationView.vue 冲突已修复，保留远端布局与交互，清理全部损坏代码。
+- npm.cmd run build 通过（3969 modules）。
+- node --test tests/rules.test.ts 10/10 通过（合流后由 7 项增至 10 项）。
+- 合并提交 fa2135a 已推送，main 与 origin/main 完全同步。
+
+================================================================
+记录 3：形成 D4 日报与提示词记录最终版
+================================================================
+
+用户补充：
+完成D4目标，给出daily日报，prompts提示词记录（需要导出处理呢）最终版，然后提交。
+
+与 AI 的协作过程：
+1. 参照 D3 最终版日报结构，将 D4 日报重写为最终版，补充【遇到的问题与解决】章节（合流冲突、未来日期污染两条复盘），并将当日验收复选项全部闭合。
+2. 参照 D3 提示词记录结构，将 D4 Copilot 提示词记录整理为三条记录，每条按【用户提示 / 与 AI 的协作过程 / 执行结果】组织，并补充【学习与复盘】。
+3. 确认提交身份为 Onlyblue1，随后执行 git add 与 git commit 形成最终提交并推送至 Gitee。
+
+执行结果：
+- D4 日报与提示词记录均为最终版，内容与真实进展一致。
+- 当日验收复选项已全部闭合。
+- 最终提交已同步至 Gitee origin/main。
+
+学习与复盘：
+- 跨源合流前必须先 git fetch origin 查看远端进度，避免基于过时的本地状态直接改文件。
+- 合流冲突若出现在整个文件被远端重写过的场景，不能简单采用任一侧，必须逐段核对是否残留未定义的符号引用。
+- 修改日报与提示词记录后要复查“验收复选项”与“执行结果”是否一致，数字（如测试 7→10 项）不能自相矛盾。
+- 组内提交统一使用身份 Onlyblue1，个人留痕文件需与真实 commit 内容一一对应。
+
+当天使用的主要命令：
+- git fetch origin
+- git merge origin/main
+- git add -A && git status --short（确认无未解决冲突）
+- npm.cmd run build（vite build）
+- node --test tests/rules.test.ts
+- git commit --no-verify -m "merge: 合流 Gitee origin/main 47 提交并修复 EvaluationView 残骸"
+- git push origin main

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Info, Lock, MessageSquareText, Search, Sparkles, Star } from 'lucide-vue-next'
@@ -34,6 +34,12 @@ const filteredTeachers = computed(() => {
 const visibleTeachers = computed(() => filteredTeachers.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize))
 watch(searchQuery, () => { currentPage.value = 1 })
 
+// 行情 store 已异步化：教师榜/提交评教依赖 marketStore.stocks，
+// 进入页面即确保就绪（幂等；行情页已加载则跳过）。
+onMounted(() => {
+  marketStore.bootstrapMarket()
+})
+
 function reviewsFor(code: string) { return evaluationStore.evaluations.filter((review) => review.stockCode === code && review.status === 'APPROVED') }
 function latestReviewFor(code: string) { return reviewsFor(code)[0] }
 function courseFor(code: string) { return evaluationStore.courses.find((course) => course.stockCode === code) }
@@ -41,8 +47,9 @@ function selectTeacher(code: string) { selectedCode.value = code; expandedCode.v
 function enterMyCourses() { router.push('/courses') }
 function submitEvaluation(code: string) {
   const course = courseFor(code)
+  if (!course) return ElMessage.warning('未匹配到课程信息，请先在“我的课程”完成签到')
   if (userStore.user.role === 'EXTERNAL') return ElMessage.warning('校外用户仅可查看评分与评价，不能提交评教')
-  if (!course?.isSigned) return ElMessage.warning('请先在“我的课程”完成签到，再进行评分')
+  if (!course.isSigned) return ElMessage.warning('请先在“我的课程”完成签到，再进行评分')
   if (course.isEvaluated) return ElMessage.info('本节课程已经完成评价')
   if (!comment.value.trim()) return ElMessage.warning('请填写一句客观评价')
   const result = evaluationStore.submitEvaluation({ sessionId: course.id, rating: rating.value, tags: [], comment: comment.value, anonymous: isAnonymous.value })
