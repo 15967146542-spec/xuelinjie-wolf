@@ -24,6 +24,7 @@ import {
   ExternalLink
 } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
+import { triggerMoonwalkEasterEgg } from '@/utils/mjEasterEgg'
 
 const router = useRouter()
 const route = useRoute()
@@ -141,6 +142,10 @@ function toggleFav(code: string, e: Event) {
   e.stopPropagation()
   marketStore.toggleWatchlist(code)
   ElMessage.success('自选股状态已更新')
+}
+
+function handleSearchEnter() {
+  if (triggerMoonwalkEasterEgg(searchQuery.value)) searchQuery.value = ''
 }
 
 onMounted(async () => {
@@ -267,6 +272,7 @@ watch([searchQuery, activeTab, sortBy, sortOrder, () => selectedPreviewStock.val
                 clearable
                 size="default"
                 class="cyber-input"
+                @keydown.enter.prevent="handleSearchEnter"
               >
                 <template #prefix>
                   <Search :size="15" class="search-icon" />
