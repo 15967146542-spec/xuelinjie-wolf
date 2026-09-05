@@ -16,7 +16,6 @@ const requestedSessionId = typeof route.query.session === 'string' ? route.query
 const requestedTeacherCode = typeof route.query.teacher === 'string' ? route.query.teacher : ''
 const requestedCourse = evaluationStore.courses.find((course) => course.id === requestedSessionId)
 const initialCode = requestedCourse?.stockCode || requestedTeacherCode || marketStore.stocks[0]?.code || ''
-const selectedCode = ref(initialCode)
 const expandedCode = ref(initialCode)
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -32,7 +31,17 @@ const filteredTeachers = computed(() => {
   return rankedTeachers.value.filter((teacher) => [teacher.name, teacher.teacherName, teacher.course, teacher.department, teacher.code].some((value) => value.toLowerCase().includes(query)))
 })
 const visibleTeachers = computed(() => filteredTeachers.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize))
-watch(searchQuery, () => { currentPage.value = 1 })
+watch(searchQuery, () => {
+  currentPage.value = 1
+  expandedCode.value = ''
+})
+watch(filteredTeachers, (teachers) => {
+  const lastPage = Math.max(1, Math.ceil(teachers.length / pageSize))
+  if (currentPage.value > lastPage) currentPage.value = lastPage
+  if (expandedCode.value && !teachers.some((teacher) => teacher.code === expandedCode.value)) {
+    expandedCode.value = ''
+  }
+})
 
 // 行情 store 已异步化：教师榜/提交评教依赖 marketStore.stocks，
 // 进入页面即确保就绪（幂等；行情页已加载则跳过）。
@@ -43,7 +52,13 @@ onMounted(() => {
 function reviewsFor(code: string) { return evaluationStore.evaluations.filter((review) => review.stockCode === code && review.status === 'APPROVED') }
 function latestReviewFor(code: string) { return reviewsFor(code)[0] }
 function courseFor(code: string) { return evaluationStore.courses.find((course) => course.stockCode === code) }
-function selectTeacher(code: string) { selectedCode.value = code; expandedCode.value = expandedCode.value === code ? '' : code }
+function drawerId(code: string) { return `teacher-reviews-${code}` }
+function selectTeacher(code: string) {
+  expandedCode.value = expandedCode.value === code ? '' : code
+  const targetPage = Math.floor(filteredTeachers.value.findIndex((teacher) => teacher.code === code) / pageSize) + 1
+  if (targetPage > 0) currentPage.value = targetPage
+  router.replace({ query: expandedCode.value ? { teacher: code } : {} })
+}
 function enterMyCourses() { router.push('/courses') }
 function submitEvaluation(code: string) {
   const course = courseFor(code)
@@ -75,7 +90,7 @@ function submitEvaluation(code: string) {
 
       <div v-if="visibleTeachers.length" class="teacher-list">
         <article v-for="(teacher, index) in visibleTeachers" :key="teacher.code" class="teacher-item">
-          <button class="teacher-row" :class="{ active: expandedCode === teacher.code }" :aria-expanded="expandedCode === teacher.code" @click="selectTeacher(teacher.code)">
+          <button class="teacher-row" :class="{ active: expandedCode === teacher.code }" :aria-controls="drawerId(teacher.code)" :aria-expanded="expandedCode === teacher.code" @click="selectTeacher(teacher.code)">
             <span class="rank">{{ (currentPage - 1) * pageSize + index + 1 }}</span>
             <span class="teacher-avatar" aria-hidden="true">{{ teacher.name.slice(0, 1) }}</span>
             <span class="teacher-main"><span class="teacher-name">{{ teacher.name }}</span><span class="teacher-course">{{ teacher.course || '课程信息待补充' }} · {{ teacher.department }}</span><span class="latest-review">{{ latestReviewFor(teacher.code)?.comment || '暂未收录已审核评价' }}</span></span>
@@ -83,7 +98,7 @@ function submitEvaluation(code: string) {
             <span class="expand-label">{{ expandedCode === teacher.code ? '收起' : '查看评价' }}</span>
           </button>
 
-          <section v-if="expandedCode === teacher.code" class="review-drawer">
+          <section v-if="expandedCode === teacher.code" :id="drawerId(teacher.code)" class="review-drawer">
             <header class="drawer-header"><div><h3>{{ teacher.name }} 的评价</h3><p>{{ teacher.teacherName }} · {{ teacher.course || '课程信息待补充' }}</p></div><span class="drawer-rating"><Star :size="16" fill="currentColor" /> {{ teacher.rating.toFixed(1) }} · {{ teacher.ratingCount }} 人评</span></header>
             <div class="course-evaluation">
               <template v-if="courseFor(teacher.code) && userStore.user.role !== 'EXTERNAL'">
