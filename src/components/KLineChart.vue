@@ -1,7 +1,29 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import * as echarts from 'echarts'
+import { init, use } from 'echarts/core'
+import type { EChartsCoreOption } from 'echarts/core'
+import { CandlestickChart, LineChart, BarChart } from 'echarts/charts'
+import {
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  AxisPointerComponent
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import type { KLinePoint } from '@/types'
+
+// R16 按需注册：只引入日K、均线、成交量所需的图表/组件/渲染器，
+// 替代全量 `import * as echarts`（原产物体积 >1.1 MB，超 Vite 500 kB 提示阈值）
+use([
+  CandlestickChart,
+  LineChart,
+  BarChart,
+  GridComponent,
+  TooltipComponent,
+  LegendComponent,
+  AxisPointerComponent,
+  CanvasRenderer
+])
 
 const props = defineProps<{
   data: KLinePoint[]
@@ -9,7 +31,7 @@ const props = defineProps<{
 }>()
 
 const chartRef = ref<HTMLDivElement | null>(null)
-let chartInstance: echarts.ECharts | null = null
+let chartInstance: ReturnType<typeof init> | null = null
 
 function initChart() {
   if (!chartRef.value) return
@@ -41,7 +63,7 @@ function updateChart() {
   const ma10 = props.data.map((p) => p.ma10 || null)
   const ma20 = props.data.map((p) => p.ma20 || null)
 
-  const option: echarts.EChartsOption = {
+  const option: EChartsCoreOption = {
     backgroundColor: 'transparent',
     animation: true,
     tooltip: {
