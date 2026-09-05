@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import Navbar from '@/components/Navbar.vue'
+import MoonwalkEasterEgg from '@/components/MoonwalkEasterEgg.vue'
 </script>
 
 <template>
   <div class="app-layout">
+    <MoonwalkEasterEgg />
     <Navbar />
     <main class="page-container">
       <router-view v-slot="{ Component }">

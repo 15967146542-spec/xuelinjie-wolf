@@ -7,6 +7,7 @@ import { useEvaluationStore } from '@/stores/evaluation'
 import { useMarketStore } from '@/stores/market'
 import { useUserStore } from '@/stores/user'
 import { isReviewPublic } from '@/rules'
+import { triggerMoonwalkEasterEgg } from '@/utils/mjEasterEgg'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +62,9 @@ function selectTeacher(code: string) {
   router.replace({ query: expandedCode.value ? { teacher: code } : {} })
 }
 function enterMyCourses() { router.push('/courses') }
+function handleSearchEnter() {
+  if (triggerMoonwalkEasterEgg(searchQuery.value)) searchQuery.value = ''
+}
 function submitEvaluation(code: string) {
   const course = courseFor(code)
   if (!course) return ElMessage.warning('未匹配到课程信息，请先在“我的课程”完成签到')
@@ -84,7 +88,7 @@ function submitEvaluation(code: string) {
         </div>
         <div class="board-actions">
           <el-button type="primary" @click="enterMyCourses">我的课程与评教</el-button>
-          <el-input v-model="searchQuery" clearable :prefix-icon="Search" placeholder="搜索教师、课程、院系或工号" />
+          <el-input v-model="searchQuery" clearable :prefix-icon="Search" placeholder="搜索教师、课程、院系或工号" @keydown.enter.prevent="handleSearchEnter" />
         </div>
       </header>
       <div class="board-meta"><span>{{ searchQuery ? `找到 ${filteredTeachers.length} 位教师` : `共 ${marketStore.stocks.length} 位教师` }}</span><span>每页 {{ pageSize }} 位 · 仅展开一项</span></div>
