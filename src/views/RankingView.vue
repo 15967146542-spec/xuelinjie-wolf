@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRankingStore } from '@/stores/ranking'
+import { useRouter } from 'vue-router'
+import { useMarketStore } from '@/stores/market'
 import {
   Trophy,
   Crown,
@@ -10,10 +12,13 @@ import {
   ShieldCheck,
   TrendingUp,
   Award,
+  ExternalLink,
   Users
 } from 'lucide-vue-next'
 
 const rankingStore = useRankingStore()
+const router = useRouter()
+const marketStore = useMarketStore()
 const activeTab = ref<'CAMPUS' | 'EXTERNAL' | 'TOTAL' | 'PROFIT' | 'DRAGON_TIGER'>('CAMPUS')
 
 const currentRankingList = computed(() => {
@@ -23,42 +28,38 @@ const currentRankingList = computed(() => {
   return rankingStore.liveRankings
 })
 
-// 名人堂三甲固定取杭电校内总资产榜，不受下方榜单 Tab 切换影响。
-// 展示顺序固定为第二名、第一名、第三名，确保第一名位于中间。
+// 龙虎风云榜：读取全部老师标的并按主力净流入排序，每页展示 20 条；仅最高/最低各两支授予称号并高亮
+const dragonPageSize = 20
+const dragonCurrentPage = ref(1)
+const dragonList = computed(() => rankingStore.dragonTigerList)
+const dragonTotal = computed(() => dragonList.value.length)
+const dragonPageItems = computed(() => {
+  const start = (dragonCurrentPage.value - 1) * dragonPageSize
+  return dragonList.value.slice(start, start + dragonPageSize)
+})
+
+watch(dragonTotal, (total) => {
+  const lastPage = Math.max(1, Math.ceil(total / dragonPageSize))
+  if (dragonCurrentPage.value > lastPage) dragonCurrentPage.value = lastPage
+})
+
+function goToDetail(code: string) {
+  marketStore.selectStock(code)
+  router.push({ path: `/stock/${code}` })
+}
+
+// 龙虎榜与详情跳转依赖全量老师标的，进入页面即确保行情数据就绪（幂等）
+onMounted(() => {
+  marketStore.bootstrapMarket()
+})
+
+// 固定三甲展示的左右顺序：第二名、第一名、第三名。
+// 这样第一名无论数据原始排序如何，都会落在中间一列。
 const topThreeRankings = computed(() => {
-  const topUsers = rankingStore.campusRankings.filter((user) => user.rank <= 3)
+  const topUsers = currentRankingList.value.filter((user) => user.rank <= 3)
   return [2, 1, 3]
     .map((rank) => topUsers.find((user) => user.rank === rank))
     .filter((user): user is NonNullable<typeof user> => Boolean(user))
-})
-
-const settlementCountdown = ref('')
-let countdownTimer: ReturnType<typeof setInterval> | undefined
-
-function updateSettlementCountdown() {
-  const now = new Date()
-  const settlement = new Date(now)
-  const daysUntilSunday = (7 - now.getDay()) % 7
-
-  settlement.setDate(now.getDate() + daysUntilSunday)
-  settlement.setHours(18, 0, 0, 0)
-  if (settlement.getTime() <= now.getTime()) settlement.setDate(settlement.getDate() + 7)
-
-  const seconds = Math.floor((settlement.getTime() - now.getTime()) / 1000)
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = seconds % 60
-  settlementCountdown.value = `${days}天 ${hours}小时 ${minutes}分 ${remainingSeconds}秒`
-}
-
-onMounted(() => {
-  updateSettlementCountdown()
-  countdownTimer = setInterval(updateSettlementCountdown, 1000)
-})
-
-onUnmounted(() => {
-  if (countdownTimer) clearInterval(countdownTimer)
 })
 
 function getRankBadgeClass(rank: number) {
@@ -69,6 +70,7 @@ function getRankBadgeClass(rank: number) {
 }
 </script>
 
+
 <template>
   <div class="ranking-view">
     <!-- Top Weekly Title Hall of Fame Banner -->
@@ -78,25 +80,8 @@ function getRankBadgeClass(rank: number) {
           <Crown :size="16" />
           <span>周度荣誉称号名人堂 (每周日 18:00 结算，有效期 7 天)</span>
         </div>
-        <span class="countdown-tip">本周结算倒计时：{{ settlementCountdown }}</span>
+        <span class="countdown-tip">本周结算倒计时：4天 12小时</span>
       </div>
-
-      <section v-if="topThreeRankings.length" class="top-three" aria-label="杭电总资产榜前三名">
-        <article
-          v-for="user in topThreeRankings"
-          :key="user.userId"
-          class="top-three-user"
-          :class="`top-three-rank-${user.rank}`"
-        >
-          <div class="top-three-avatar-wrap">
-            <img :src="user.avatar" class="top-three-avatar" :alt="`${user.username}的头像`" />
-            <span class="top-three-medal">{{ user.rank }}</span>
-          </div>
-          <strong class="top-three-name">{{ user.username }}</strong>
-          <span v-if="user.title" class="top-three-title">{{ user.title }}</span>
-          <strong class="top-three-asset">¥{{ user.totalAsset.toLocaleString() }}</strong>
-        </article>
-      </section>
 
       <div class="titles-grid">
         <div
@@ -161,6 +146,26 @@ function getRankBadgeClass(rank: number) {
 
       <!-- 1. Normal User Ranking Table -->
       <div v-if="activeTab !== 'DRAGON_TIGER'" class="table-container">
+        <section
+          v-if="activeTab === 'CAMPUS' && topThreeRankings.length"
+          class="top-three"
+          aria-label="杭电总资产榜前三名"
+        >
+          <article
+            v-for="user in topThreeRankings"
+            :key="user.userId"
+            class="top-three-user"
+            :class="`top-three-rank-${user.rank}`"
+          >
+            <div class="top-three-avatar-wrap">
+              <img :src="user.avatar" class="top-three-avatar" :alt="`${user.username}的头像`" />
+              <span class="top-three-medal">{{ user.rank }}</span>
+            </div>
+            <strong class="top-three-name">{{ user.username }}</strong>
+            <span v-if="user.title" class="top-three-title">{{ user.title }}</span>
+            <strong class="top-three-asset">¥{{ user.totalAsset.toLocaleString() }}</strong>
+          </article>
+        </section>
         <table class="ranking-table">
           <thead>
             <tr>
@@ -212,48 +217,79 @@ function getRankBadgeClass(rank: number) {
       </div>
 
       <!-- 2. Dragon-Tiger Leaderboard -->
-      <div v-else class="table-container">
+      <div v-else class="dragon-panel">
         <div class="dragon-intro">
-          <span>根据今日收盘全站交易流水统计买入与卖出净额前四标的</span>
+          <span>
+            基于今日收盘全站交易流水，读取全部 {{ dragonTotal }} 只老师标的并按主力净流入排序，
+            每页展示 {{ dragonPageSize }} 只；仅最高两支（多头总龙头 / 多头人气王）与最低两支
+            （空头总龙头 / 恐慌出逃王）授予称号并高亮。
+          </span>
         </div>
-        <table class="ranking-table">
-          <thead>
-            <tr>
-              <th width="80" class="text-center">排位</th>
-              <th>标的代码 / 教师</th>
-              <th class="text-right">今日买入总额</th>
-              <th class="text-right">今日卖出总额</th>
-              <th class="text-right">主力净流入</th>
-              <th>龙虎榜特征标签</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in rankingStore.dragonTigerList" :key="item.stockCode" class="r-row">
-              <td class="text-center">
-                <div class="rank-badge" :class="getRankBadgeClass(item.rank)">
-                  {{ item.rank }}
-                </div>
-              </td>
-              <td>
-                <div class="dragon-stock">
-                  <span class="code-badge">{{ item.stockCode }}</span>
-                  <strong>{{ item.stockName }}</strong>
-                  <small class="text-soft"> ({{ item.teacherName }})</small>
-                </div>
-              </td>
-              <td class="text-right font-mono text-soft">¥{{ (item.buyAmount / 10000).toFixed(1) }}万</td>
-              <td class="text-right font-mono text-soft">¥{{ (item.sellAmount / 10000).toFixed(1) }}万</td>
-              <td class="text-right font-mono font-bold" :class="item.netAmount >= 0 ? 'up' : 'down'">
-                {{ item.netAmount >= 0 ? '+' : '' }}¥{{ (item.netAmount / 10000).toFixed(1) }}万
-              </td>
-              <td>
-                <span class="dragon-tag" :class="item.netAmount >= 0 ? 'd-up' : 'd-down'">
-                  {{ item.tag }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-container">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th width="80" class="text-center">排位</th>
+                <th>标的代码 / 教师</th>
+                <th class="text-right">今日买入总额</th>
+                <th class="text-right">今日卖出总额</th>
+                <th class="text-right">主力净流入</th>
+                <th width="92" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in dragonPageItems"
+                :key="item.stockCode"
+                class="r-row"
+                :class="{ 'dragon-best': item.highlight === 'TOP', 'dragon-worst': item.highlight === 'BOTTOM' }"
+              >
+                <td class="text-center">
+                  <div class="rank-badge" :class="getRankBadgeClass(item.rank)">
+                    {{ item.rank }}
+                  </div>
+                </td>
+                <td>
+                  <div class="dragon-stock">
+                    <span class="code-badge">{{ item.stockCode }}</span>
+                    <div class="dragon-stock-main">
+                      <span class="dragon-stock-name">
+                        <strong>{{ item.stockName }}</strong>
+                        <small class="text-soft">({{ item.teacherName }})</small>
+                      </span>
+                      <span
+                        v-if="item.title"
+                        class="dragon-title-chip"
+                        :class="item.highlight === 'TOP' ? 'chip-top' : 'chip-bottom'"
+                      >
+                        {{ item.title }}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-right font-mono text-soft">¥{{ (item.buyAmount / 10000).toFixed(1) }}万</td>
+                <td class="text-right font-mono text-soft">¥{{ (item.sellAmount / 10000).toFixed(1) }}万</td>
+                <td class="text-right font-mono font-bold" :class="item.netAmount >= 0 ? 'up' : 'down'">
+                  {{ item.netAmount >= 0 ? '+' : '' }}¥{{ (item.netAmount / 10000).toFixed(1) }}万
+                </td>
+                <td class="text-center">
+                  <button type="button" class="detail-btn" @click="goToDetail(item.stockCode)">
+                    <ExternalLink :size="13" /> 详情
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="dragonTotal > dragonPageSize" class="pagination">
+          <el-pagination
+            v-model:current-page="dragonCurrentPage"
+            background
+            layout="prev, pager, next"
+            :page-size="dragonPageSize"
+            :total="dragonTotal"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -400,6 +436,7 @@ function getRankBadgeClass(rank: number) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: clamp(16px, 6vw, 72px);
+  min-width: 520px;
   padding: 18px clamp(24px, 8vw, 100px) 24px;
   margin-bottom: 8px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
@@ -600,16 +637,46 @@ function getRankBadgeClass(rank: number) {
   border-radius: 6px;
 }
 
-.dragon-tag {
-  font-size: 0.76rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
+.dragon-panel { display: flex; flex-direction: column; gap: 14px; }
+
+/* 龙虎榜突出展示：最高两支（多头·金）与最低两支（空头·蓝） */
+tr.dragon-best { background: linear-gradient(90deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.02) 42%, transparent 80%); box-shadow: inset 3px 0 0 #fbbf24; }
+tr.dragon-worst { background: linear-gradient(90deg, rgba(56, 189, 248, 0.12), rgba(56, 189, 248, 0.02) 42%, transparent 80%); box-shadow: inset 3px 0 0 #38bdf8; }
+
+.dragon-stock-main { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.dragon-stock-name { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+
+.dragon-title-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.5;
+  white-space: nowrap;
 }
+.dragon-title-chip.chip-top { color: #fbbf24; background: rgba(251, 191, 36, 0.14); border: 1px solid rgba(251, 191, 36, 0.42); }
+.dragon-title-chip.chip-bottom { color: #38bdf8; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.42); }
 
-.dragon-tag.d-up { background: rgba(248, 113, 113, 0.15); color: #f87171; }
-.dragon-tag.d-down { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+.detail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.detail-btn:hover { background: rgba(56, 189, 248, 0.24); color: #e0f2fe; }
 
+.pagination { display: flex; justify-content: center; }
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 .font-mono { font-family: monospace; }
