@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
+import { calcTradeAmount, calcTradeFee, calcTradeNetReturn, calcTradePayable } from '@/rules'
 
 const marketStore = useMarketStore()
 const tradeStore = useTradeStore()
@@ -30,6 +31,15 @@ const currentStock = computed(() => {
 
 const currentHolding = computed(() => {
   return tradeStore.positions.find((p) => p.stockCode === selectedCode.value)
+})
+
+// 下单预估价：与 trade store 成交结算共用同一套手续费/回笼规则（月卡 5 折生效）
+const previewAmount = computed(() => calcTradeAmount(currentStock.value.currentPrice, shares.value))
+const previewFee = computed(() => calcTradeFee(previewAmount.value, userStore.user.monthCardActive))
+const previewSettlement = computed(() => {
+  const amount = previewAmount.value
+  const fee = previewFee.value
+  return side.value === 'BUY' ? calcTradePayable(amount, fee) : calcTradeNetReturn(amount, fee)
 })
 
 const maxAffordableShares = computed(() => {
@@ -232,16 +242,16 @@ function quickSellPosition(stockCode: string, availShares: number) {
         <div class="ticket-cost-summary">
           <div class="summary-line">
             <span>预估发生金额</span>
-            <strong class="font-mono">¥{{ (currentStock.currentPrice * shares).toFixed(2) }}</strong>
+            <strong class="font-mono">¥{{ previewAmount.toFixed(2) }}</strong>
           </div>
           <div class="summary-line">
-            <span>交易规费 (0.1%)</span>
-            <span class="font-mono">¥{{ (currentStock.currentPrice * shares * 0.001).toFixed(2) }}</span>
+            <span>交易规费 (0.1%{{ userStore.user.monthCardActive ? ' ·月卡5折' : '' }})</span>
+            <span class="font-mono">¥{{ previewFee.toFixed(2) }}</span>
           </div>
           <div class="summary-line total-line">
             <span>{{ side === 'BUY' ? '实付学币' : '实收学币' }}</span>
             <strong class="font-mono text-lg" :class="side === 'BUY' ? 'up' : 'down'">
-              ¥{{ (currentStock.currentPrice * shares * (side === 'BUY' ? 1.001 : 0.999)).toFixed(2) }}
+              ¥{{ previewSettlement.toFixed(2) }}
             </strong>
           </div>
         </div>

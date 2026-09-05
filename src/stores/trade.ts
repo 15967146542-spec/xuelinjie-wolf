@@ -2,6 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ActionResult, Order, Position, TradeSide } from '@/types'
 import { initialOrders, initialPositions } from '@/mock/initialData'
+import {
+  calcMaxAdditionalSharesToLimit,
+  calcTradeAmount,
+  calcTradeFee,
+  calcTradeNetReturn,
+  calcTradePayable,
+  calcWeightedCostPrice,
+  deductSellableLots,
+  exceedsPositionLimit,
+  FEE_POOL_RETAIN_RATIO
+} from '@/rules'
 import { useUserStore } from './user'
 import { useMarketStore } from './market'
 
@@ -65,23 +76,21 @@ export const useTradeStore = defineStore('trade', () => {
     if (!stock) return { success: false, message: '标的不存在' }
 
     const price = stock.currentPrice
-    const tradeAmount = Number((price * shares).toFixed(2))
-    const feeRate = userStore.user.monthCardActive ? 0.0005 : 0.001 // Month card gives 50% discount
-    const fee = Number((tradeAmount * feeRate).toFixed(2))
-    const totalRequired = Number((tradeAmount + fee).toFixed(2))
+    const tradeAmount = calcTradeAmount(price, shares)
+    const fee = calcTradeFee(tradeAmount, userStore.user.monthCardActive) // Month card gives 50% discount
+    const totalRequired = calcTradePayable(tradeAmount, fee)
 
     if (userStore.user.balance < totalRequired) {
       return { success: false, message: `资金不足，需要 ¥${totalRequired} (含手续费 ¥${fee})` }
     }
 
-    // Risk control: Max position limit <= 30% of Total Asset
+    // Risk control: Max position limit <= 30% of Total Asset (rules.POSITION_LIMIT_RATIO)
     const currentHolding = positions.value.find((p) => p.stockCode === stockCode)
     const existingVal = currentHolding ? currentHolding.totalShares * price : 0
-    const targetVal = existingVal + tradeAmount
     const currentTotalAsset = totalAsset.value
 
-    if (targetVal / currentTotalAsset > 0.30) {
-      const maxAllowedShares = Math.floor(((currentTotalAsset * 0.30) - existingVal) / price)
+    if (exceedsPositionLimit(existingVal, tradeAmount, currentTotalAsset)) {
+      const maxAllowedShares = calcMaxAdditionalSharesToLimit(currentTotalAsset, existingVal, price)
       return {
         success: false,
         message: `触发风控：单只标的持仓不得超过总资产的30%！当前最多还可买入 ${Math.max(0, maxAllowedShares)} 股`
@@ -92,7 +101,7 @@ export const useTradeStore = defineStore('trade', () => {
     userStore.deductBalance(totalRequired, `买入 ${stock.name} ${shares}股`, '证券交易')
 
     // Platform pool takes 50% fee, rest destroyed
-    platformFeePool.value = Number((platformFeePool.value + (fee * 0.5)).toFixed(2))
+    platformFeePool.value = Number((platformFeePool.value + (fee * FEE_POOL_RETAIN_RATIO)).toFixed(2))
 
     // Record order
     const orderNo = `ORD${Date.now().toString().slice(-8)}`
@@ -112,10 +121,14 @@ export const useTradeStore = defineStore('trade', () => {
 
     // Update or create position
     if (currentHolding) {
-      const oldTotal = currentHolding.totalShares * currentHolding.costPrice
-      const newTotal = oldTotal + tradeAmount
+      // 摊薄均价先按旧仓数量计算，再累加本次买入股数（与加权公式逐位一致）
+      currentHolding.costPrice = calcWeightedCostPrice(
+        currentHolding.totalShares,
+        currentHolding.costPrice,
+        shares,
+        price
+      )
       currentHolding.totalShares += shares
-      currentHolding.costPrice = Number((newTotal / currentHolding.totalShares).toFixed(2))
       currentHolding.lots.push({
         lotId: 'lot-' + Date.now(),
         buyDate: new Date().toISOString().split('T')[0],
@@ -174,14 +187,13 @@ export const useTradeStore = defineStore('trade', () => {
     }
 
     const price = stock.currentPrice
-    const tradeAmount = Number((price * shares).toFixed(2))
-    const feeRate = userStore.user.monthCardActive ? 0.0005 : 0.001
-    const fee = Number((tradeAmount * feeRate).toFixed(2))
-    const netReturn = Number((tradeAmount - fee).toFixed(2))
+    const tradeAmount = calcTradeAmount(price, shares)
+    const fee = calcTradeFee(tradeAmount, userStore.user.monthCardActive)
+    const netReturn = calcTradeNetReturn(tradeAmount, fee)
 
     // Add balance back to user
     userStore.addBalance(netReturn, `卖出 ${stock.name} ${shares}股`, '证券交易')
-    platformFeePool.value = Number((platformFeePool.value + (fee * 0.5)).toFixed(2))
+    platformFeePool.value = Number((platformFeePool.value + (fee * FEE_POOL_RETAIN_RATIO)).toFixed(2))
 
     // Record order
     const orderNo = `ORD${Date.now().toString().slice(-8)}`
@@ -199,24 +211,10 @@ export const useTradeStore = defineStore('trade', () => {
       createTime: new Date().toLocaleTimeString()
     })
 
-    // Reduce position lots FIFO
-    let remainingToDeduct = shares
+    // Reduce position lots FIFO（T+1：仅已解锁批次参与，扣减规则见 rules.deductSellableLots）
+    holding.lots = deductSellableLots(holding.lots, shares).lots
     holding.availableShares -= shares
     holding.totalShares -= shares
-
-    for (const lot of holding.lots) {
-      if (lot.canSellToday) {
-        if (lot.shares <= remainingToDeduct) {
-          remainingToDeduct -= lot.shares
-          lot.shares = 0
-        } else {
-          lot.shares -= remainingToDeduct
-          remainingToDeduct = 0
-          break
-        }
-      }
-    }
-    holding.lots = holding.lots.filter((l) => l.shares > 0)
 
     if (holding.totalShares === 0) {
       positions.value = positions.value.filter((p) => p.stockCode !== stockCode)

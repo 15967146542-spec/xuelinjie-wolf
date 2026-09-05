@@ -116,3 +116,132 @@ export function autoCompleteLoginTask<T extends DailyTaskState>(task: T): T {
   }
   return { ...task }
 }
+
+// ---------------------------------------------------------------------------
+// 任务奖励领取规则（纯函数，供 stores/task.ts 使用并可被单测覆盖）
+// ---------------------------------------------------------------------------
+
+/** 任务是否已达到可领取状态：进度满且未领取 */
+export function canClaimTaskReward(current: number, target: number, isClaimed: boolean): boolean {
+  return !isClaimed && current >= target
+}
+
+/** 任务进度推进后应落到的值：只增不减、封顶 target（调用方自行决定是否推进） */
+export function nextTaskProgress(current: number, target: number, delta: number): number {
+  return Math.min(target, current + delta)
+}
+
+// ---------------------------------------------------------------------------
+// 模拟交易规则（纯函数，供 stores/trade.ts 与交易下单预估复用，可被单测覆盖）
+// ---------------------------------------------------------------------------
+
+/** 交易规费费率（单边 0.1%） */
+export const TRADE_FEE_RATE = 0.001
+/** 月卡持有人手续费折扣（5 折：0.1% × 0.5 = 0.05%） */
+export const MONTH_CARD_FEE_DISCOUNT = 0.5
+/** 风控：单只标的持仓市值不得超过总资产的 30% */
+export const POSITION_LIMIT_RATIO = 0.3
+/** 手续费进入平台公共奖池的比例（其余销毁） */
+export const FEE_POOL_RETAIN_RATIO = 0.5
+
+/** 当前适用的手续费率（月卡半价） */
+export function tradeFeeRate(monthCardActive: boolean): number {
+  return TRADE_FEE_RATE * (monthCardActive ? MONTH_CARD_FEE_DISCOUNT : 1)
+}
+
+/** 成交金额 = 成交价 × 股数（保留两位） */
+export function calcTradeAmount(price: number, shares: number): number {
+  return round(price * shares, 2)
+}
+
+/** 手续费 = 成交金额 × 适用费率（保留两位） */
+export function calcTradeFee(amount: number, monthCardActive: boolean): number {
+  return round(amount * tradeFeeRate(monthCardActive), 2)
+}
+
+/** 买入应付总额 = 成交金额 + 手续费（保留两位） */
+export function calcTradePayable(amount: number, fee: number): number {
+  return round(amount + fee, 2)
+}
+
+/** 卖出净回笼 = 成交金额 − 手续费（保留两位） */
+export function calcTradeNetReturn(amount: number, fee: number): number {
+  return round(amount - fee, 2)
+}
+
+/** 风控判断：加仓后单标的持仓是否超过总资产的 POSITION_LIMIT_RATIO */
+export function exceedsPositionLimit(existingValue: number, addValue: number, totalAsset: number): boolean {
+  return (existingValue + addValue) / totalAsset > POSITION_LIMIT_RATIO
+}
+
+/** 风控下该标的仍可加仓的最大股数（整股、超限按 0 兜底） */
+export function calcMaxAdditionalSharesToLimit(totalAsset: number, existingValue: number, price: number): number {
+  return Math.max(0, Math.floor((totalAsset * POSITION_LIMIT_RATIO - existingValue) / price))
+}
+
+/** 买入加仓后的摊薄持仓成本（旧仓与新股按金额加权，保留两位） */
+export function calcWeightedCostPrice(
+  oldShares: number,
+  oldCostPrice: number,
+  addShares: number,
+  addPrice: number
+): number {
+  const newShares = oldShares + addShares
+  if (newShares <= 0) return 0
+  return round((oldShares * oldCostPrice + addShares * addPrice) / newShares, 2)
+}
+
+/** T+1 批次扣减所需的最小结构（与 types.PositionLot 对齐） */
+export interface SellableLotLike {
+  shares: number
+  canSellToday: boolean
+}
+
+/**
+ * 按 FIFO 扣减可卖批次（纯函数，不修改入参）：
+ * 当日买入未解锁的批次（canSellToday=false）不参与，
+ * 仅按顺序扣足 sellShares，返回扣减后的批次与未能扣足的余量。
+ */
+export function deductSellableLots<T extends SellableLotLike>(
+  lots: readonly T[],
+  sellShares: number
+): { lots: T[]; remaining: number } {
+  let remaining = sellShares
+  const next = lots.map<T>((lot) => {
+    if (!lot.canSellToday || remaining <= 0) return { ...lot }
+    if (lot.shares <= remaining) {
+      remaining -= lot.shares
+      return { ...lot, shares: 0 }
+    }
+    const keep = lot.shares - remaining
+    remaining = 0
+    return { ...lot, shares: keep }
+  })
+  return { lots: next.filter((lot) => lot.shares > 0), remaining }
+}
+
+// ---------------------------------------------------------------------------
+// 评价审核规则（纯函数：公开可见口径 + 管理端可改状态集，供 store/视图复用）
+// ---------------------------------------------------------------------------
+
+/** 对外公开可见的评教状态：个股详情与评教中心的「已审核评价」只展示它 */
+export const PUBLIC_REVIEW_STATUS = 'APPROVED' as const
+
+/**
+ * 管理端审核动作可变更到的状态集合（不含 PENDING：
+ * 原型无待审队列，新评教提交即公开，故审核仅在「通过 / 降权 / 屏蔽」间流转）。
+ */
+export const AUDIT_STATUSES = ['APPROVED', 'DOWNWEIGHTED', 'REJECTED'] as const
+
+/** 单个审核动作状态（由 AUDIT_STATUSES 推导） */
+export type AuditStatus = (typeof AUDIT_STATUSES)[number]
+
+/** 是否为合法的管理端审核目标状态 */
+export function isAuditStatus(value: string): value is AuditStatus {
+  return (AUDIT_STATUSES as readonly string[]).includes(value)
+}
+
+/** 该评价状态是否向公开列表展示（被驳回 / 降权的评价对外下架） */
+export function isReviewPublic(status: string): boolean {
+  return status === PUBLIC_REVIEW_STATUS
+}

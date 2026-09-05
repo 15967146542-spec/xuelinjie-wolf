@@ -5,7 +5,10 @@ import { initialCourses, initialEvaluations } from '@/mock/initialData'
 import {
   applyRatingAggregation,
   EVALUATION_REWARD,
-  SIGNIN_REWARD
+  isAuditStatus,
+  PUBLIC_REVIEW_STATUS,
+  SIGNIN_REWARD,
+  type AuditStatus
 } from '@/rules'
 import { useUserStore } from './user'
 import { useMarketStore } from './market'
@@ -66,7 +69,7 @@ export const useEvaluationStore = defineStore('evaluation', () => {
       rating: params.rating,
       tags: params.tags,
       comment: params.comment,
-      status: 'APPROVED',
+      status: PUBLIC_REVIEW_STATUS, // 原型口径：新评教提交即公开可见（无待审队列）
       createTime: new Date().toLocaleString(),
       anonymous: params.anonymous !== false
     }
@@ -98,10 +101,11 @@ export const useEvaluationStore = defineStore('evaluation', () => {
     }
   }
 
-  function moderateEvaluation(evalId: string, status: 'APPROVED' | 'REJECTED' | 'DOWNWEIGHTED') {
+  function moderateEvaluation(evalId: string, status: AuditStatus) {
     if (!userStore.canUse('RISK_ADMIN')) return
     const target = evaluations.value.find((e) => e.id === evalId)
-    if (target) {
+    // 审核目标限定为「通过 / 降权 / 屏蔽」合法集（rules.AUDIT_STATUSES），非法值不写入数据
+    if (target && isAuditStatus(status)) {
       target.status = status
     }
   }

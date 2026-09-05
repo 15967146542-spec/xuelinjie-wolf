@@ -15,6 +15,7 @@ import {
   trendClass
 } from '@/utils/marketFormatters'
 import { extractReturnMarketQuery } from '@/utils/marketRouteState'
+import { calcTradeAmount, calcTradeFee, calcTradeNetReturn, calcTradePayable, isReviewPublic } from '@/rules'
 import KLineChart from '@/components/KLineChart.vue'
 import RatingTrendChart from '@/components/RatingTrendChart.vue'
 import {
@@ -86,18 +87,14 @@ const priceChange = computed(() => {
   return calcChange(stock.value.currentPrice, stock.value.prevClose)
 })
 
-const tradeAmount = computed(() => {
-  if (!stock.value) return 0
-  return Number((stock.value.currentPrice * tradeShares.value).toFixed(2))
-})
-
-const feeRate = computed(() => (userStore.user.monthCardActive ? 0.0005 : 0.001))
-const feeAmount = computed(() => Number((tradeAmount.value * feeRate.value).toFixed(2)))
+const tradeAmount = computed(() => stock.value ? calcTradeAmount(stock.value.currentPrice, tradeShares.value) : 0)
+const feeAmount = computed(() => calcTradeFee(tradeAmount.value, userStore.user.monthCardActive))
 const settlementAmount = computed(() => {
-  const val = quickTradeSide.value === 'BUY'
-    ? tradeAmount.value + feeAmount.value
-    : tradeAmount.value - feeAmount.value
-  return Number(val.toFixed(2))
+  const amount = tradeAmount.value
+  const fee = feeAmount.value
+  return quickTradeSide.value === 'BUY'
+    ? calcTradePayable(amount, fee)
+    : calcTradeNetReturn(amount, fee)
 })
 
 // Factor calculation breakdown
@@ -122,7 +119,7 @@ const stockReviews = computed(() => {
   }
   const currentCode = stock.value.code
   return evaluationStore.evaluations.filter(
-    (e) => e.stockCode === currentCode && e.status === 'APPROVED'
+    (e) => e.stockCode === currentCode && isReviewPublic(e.status)
   )
 })
 

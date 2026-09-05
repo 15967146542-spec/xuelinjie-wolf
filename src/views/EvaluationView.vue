@@ -6,6 +6,7 @@ import { Info, Lock, MessageSquareText, Search, Sparkles, Star } from 'lucide-vu
 import { useEvaluationStore } from '@/stores/evaluation'
 import { useMarketStore } from '@/stores/market'
 import { useUserStore } from '@/stores/user'
+import { isReviewPublic } from '@/rules'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,7 +50,7 @@ onMounted(() => {
   marketStore.bootstrapMarket()
 })
 
-function reviewsFor(code: string) { return evaluationStore.evaluations.filter((review) => review.stockCode === code && review.status === 'APPROVED') }
+function reviewsFor(code: string) { return evaluationStore.evaluations.filter((review) => review.stockCode === code && isReviewPublic(review.status)) }
 function latestReviewFor(code: string) { return reviewsFor(code)[0] }
 function courseFor(code: string) { return evaluationStore.courses.find((course) => course.stockCode === code) }
 function drawerId(code: string) { return `teacher-reviews-${code}` }

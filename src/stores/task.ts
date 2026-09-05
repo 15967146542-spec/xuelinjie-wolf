@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TaskItem, TaskTrigger } from '@/types'
 import { initialTasks } from '@/mock/initialData'
-import { autoCompleteLoginTask, resetDailyTask, shouldResetDaily } from '@/rules'
+import { autoCompleteLoginTask, canClaimTaskReward, nextTaskProgress, resetDailyTask, shouldResetDaily } from '@/rules'
 import { useUserStore } from './user'
 
 /** localStorage 中记录“每日任务最近一次结算日期”的键名 */
@@ -73,7 +73,9 @@ export const useTaskStore = defineStore('task', () => {
       return { success: false, message: '仅校内学生可凭绩点兑换学币' }
     }
     if (task.isClaimed) return { success: false, message: '该任务奖励已领取' }
-    if (task.current < task.target) return { success: false, message: '任务目标尚未完成' }
+    if (!canClaimTaskReward(task.current, task.target, task.isClaimed)) {
+      return { success: false, message: '任务目标尚未完成' }
+    }
 
     task.isClaimed = true
     userStore.addBalance(task.reward, `领取任务奖励: ${task.title}`, '任务中心')
@@ -84,7 +86,7 @@ export const useTaskStore = defineStore('task', () => {
   function advanceTaskProgress(taskId: number, delta = 1) {
     const task = tasks.value.find((t) => t.id === taskId)
     if (task && !task.isClaimed && task.current < task.target) {
-      task.current = Math.min(task.target, task.current + delta)
+      task.current = nextTaskProgress(task.current, task.target, delta)
     }
   }
 
