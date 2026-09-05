@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEvaluationStore } from '@/stores/evaluation'
 import { useUserStore } from '@/stores/user'
@@ -35,6 +35,12 @@ const selectedSessionId = ref<string>(
     ? (requestedSessionId as string)
     : (evaluationStore.courses[0]?.id || '')
 )
+
+// 行情 store 已异步化：stocks 需经 bootstrapMarket 填充后才可用于
+// 提交评教时的标的聚合与推演卡片；进入评教页即确保就绪（幂等，行情页已加载则跳过）。
+onMounted(() => {
+  marketStore.bootstrapMarket()
+})
 const rating = ref<number>(5)
 const hoverRating = ref<number>(0)
 const selectedTags = ref<string[]>(['板书天花板', '讲题通透'])
