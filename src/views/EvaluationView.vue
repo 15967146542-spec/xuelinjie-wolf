@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Info, Lock, MessageSquareText, Search, Sparkles, Star } from 'lucide-vue-next'
@@ -33,6 +33,12 @@ const filteredTeachers = computed(() => {
 })
 const visibleTeachers = computed(() => filteredTeachers.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize))
 watch(searchQuery, () => { currentPage.value = 1 })
+
+// 行情 store 已异步化：教师榜/提交评教依赖 marketStore.stocks，
+// 进入页面即确保就绪（幂等；行情页已加载则跳过）。
+onMounted(() => {
+  marketStore.bootstrapMarket()
+})
 
 function reviewsFor(code: string) { return evaluationStore.evaluations.filter((review) => review.stockCode === code && review.status === 'APPROVED') }
 function latestReviewFor(code: string) { return reviewsFor(code)[0] }
