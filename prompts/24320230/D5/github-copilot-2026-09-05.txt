@@ -35,3 +35,32 @@ GitHub Copilot 提示词记录
 - npm.cmd run build（vite build，3969 modules）
 - npm.cmd run test（node --test tests/rules.test.ts，10/10）
 - git status / git add / git commit / git push origin main
+
+
+================================================================
+记录 2：推进 R16——KLineChart 的 echarts 全量引入改按需
+================================================================
+
+用户提示（任务拆解）：
+1. todos R16 待办 + 问题台账 D2-004（>500 kB chunk）：先定位是哪个文件全量引入 echarts、用了哪些图表能力，再决定按需注册清单，禁止照抄 v5 旧示例。
+2. 给出对照 echarts 6 实际导出核对的注册方案，并说明如何用 build 前后 chunk 尺寸验证收益。
+3. 改完分别跑 build 与 test，把时间、退出码、关键输出行记入 docs/24320230/验证记录.md。
+
+与 AI 的协作过程：
+1. 定位：仅 KLineChart.vue 用 `import * as echarts`（全量），RatingTrendChart.vue 已是按需，1.12MB 超限 chunk 即全量 echarts 所致。
+2. 核对 node_modules/echarts 的 charts/components/renderers.d.ts 实际导出，确认 CandlestickChart、LineChart、BarChart、GridComponent、TooltipComponent、LegendComponent、AxisPointerComponent、CanvasRenderer 均可用。
+3. Copilot 初版清单漏 LegendComponent 与 AxisPointerComponent（该组件 option 用了 legend 与 tooltip 十字轴指针）——发现并纠正：逐项对照 KLineChart option（legend/grid/tooltip.axisPointer）补齐后再构建。
+4. 构建实测：图表 chunk 1122.72→548.95 kB（gzip 372.93→185.83 kB），modules 3969→3958，build/test 均通过；commit 8a68f0c。
+
+执行结果：
+- R16 部分推进：图表相关超限 chunk 减半，>500 kB 告警范围缩小到 element-plus 全量 vendor（index 874.23 kB），已如实记入台账 D2-004（状态「部分优化」），未虚报完成。
+- 日报、验证记录（V3/V4）、todos 维护日志同步更新。
+
+复盘：
+- echarts 按需清单必须基于实际 option 用到的能力反推，不能用通用模板；漏注册只在运行时失效，build 查不出来。
+- 体积收益用同一台机器的 build 前后输出对比作证据，比"理论上省"可信。
+
+当天新增命令：
+- Select-String node_modules/echarts/types/dist/{components,charts,renderers}.d.ts（核对按需导出名）
+- npm.cmd run build（vite build，R16 后 3958 modules，图表 chunk 1122.72→548.95 kB）
+- npm.cmd run test（node --test tests/rules.test.ts，10/10）
