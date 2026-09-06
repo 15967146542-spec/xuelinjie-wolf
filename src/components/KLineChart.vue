@@ -39,7 +39,7 @@ function initChart() {
     chartInstance.dispose()
   }
 
-  chartInstance = echarts.init(chartRef.value)
+  chartInstance = init(chartRef.value)
   updateChart()
 }
 
@@ -49,7 +49,7 @@ function updateChart() {
   const dates = props.data.map((p) => p.date)
   // ECharts Candlestick expects: [open, close, low, high]
   const ohlc = props.data.map((p) => [p.open, p.close, p.low, p.high])
-  const volumes = props.data.map((p, idx) => {
+  const volumes = props.data.map((p) => {
     const isUp = p.close >= p.open
     return {
       value: p.volume,
