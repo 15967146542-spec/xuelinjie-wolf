@@ -94,3 +94,31 @@ GitHub Copilot 提示词记录
 - Get-ChildItem src -Recurse -Filter *.vue | Select-String '<el-[a-z-]+'（统计模板实际组件种类=15）
 - Get-ChildItem dist/assets -Filter '*export-helper*.js' | Get-Content -Raw（核验残留 chunk 内容归属）
 - npm.cmd run build / npm.cmd run test（R16 收尾实测，记录 V5/V6）
+
+===============================================================
+记录 4：R14 达成——交易/奖励/评价审核规则收敛 rules.ts 可测化
+===============================================================
+
+用户提示（任务拆解）：
+1. 检查 todos R14（交易/奖励/评价审核单测）对应当前代码的事实差异：手动类同逻辑已内联三份（trade store 买卖 + StockDetailView 预估 + TradeView 下单预估）；先抽出单份真源再谈测试。
+2. 目标：业务规则放 src/rules.ts 纯函数；store/视图只引用；测试放 tests/rules.test.ts；跑 build 与 test，实测证据入验证记录。
+3. 先拉取检查 origin/main 是否已有新提交，避免基于过期基线工作。
+
+与 AI 的协作过程：
+1. 基线核实：拉取后确认远端无新提交；梳理并抽取三组规则到 rules.ts：模拟交易（费率/月卡折扣/成交额/应付/净回笼、30% 单标的仓位风控与可加仓上限、加仓摊薄均价、T+1 批次 FIFO 扣减 deductSellableLots——纯函数不改入参）、任务奖励（达标且未领 canClaimTaskReward、进度封顶 nextTaskProgress）、评价审核（PUBLIC_REVIEW_STATUS/AUDIT_STATUSES 不含 PENDING、isAuditStatus/isReviewPublic）。
+2. 消费替换：stores/trade、stores/task、stores/evaluation 与 StockDetail/Evaluation/Trade 三视图全部改走 rules；同时收口交易手续费内联拷贝三处，并修正 TradeView 下单预估卡原内联 `×0.001` 未生效月卡 5 折的问题（预估与成交结算同源后一致）。
+3. 期间发现 buy 分支风控处遗留 targetVal 死变量（改走 exceedsPositionLimit 后未用），删除保持整洁。
+4. 证据实测：test 10→20 全绿、build 3958 modules 零告警，记录 V7/V8（基线 e969258）。
+
+执行结果：
+- R14 勾选（todos 12/17），维护日志按日映射；D5 日报与验证记录同步（commit 5b4ad6d）。
+- 推送后与当时 origin/main 合流（commit 6f4950f）：合入远端 D6 相关 6 个提交，唯一冲突 EvaluationView.vue 为双方 import 叠加，手解保留两行。
+
+复盘：
+- 业务规则先行收敛为纯函数再做单测，能同时消除「多份内联拷贝漂移」（三处费率、月卡折扣未生效）这类数据不一致 Bug，单测覆盖的是唯一的真源。
+- 合流前先 fetch 并 diff 远端改动文件列表，能预判冲突面；R14 提交 hash 已写进文档，故用 merge 而非 rebase 保持引用稳定。
+
+当天新增命令：
+- npm.cmd run test（node --test tests/rules.test.ts，10→20 项全绿，记录 V7/V8）
+- npm.cmd run build（R14 后复验 3958 modules、零告警，记录 V7）
+- git merge origin/main（合流 6f4950f，手工解 EvaluationView.vue import 冲突）
