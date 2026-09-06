@@ -514,7 +514,6 @@ export const initialDragonTiger: DragonTigerItem[] = [
     buyAmount: 1840000,
     sellAmount: 160000,
     netAmount: 1680000,
-    tag: '多头主升浪'
   },
   {
     rank: 2,
@@ -524,7 +523,6 @@ export const initialDragonTiger: DragonTigerItem[] = [
     buyAmount: 1520000,
     sellAmount: 170000,
     netAmount: 1350000,
-    tag: '机构持续加仓'
   },
   {
     rank: 3,
@@ -534,7 +532,6 @@ export const initialDragonTiger: DragonTigerItem[] = [
     buyAmount: 980000,
     sellAmount: 128000,
     netAmount: 852000,
-    tag: '口碑放量突破'
   },
   {
     rank: 4,
@@ -544,7 +541,6 @@ export const initialDragonTiger: DragonTigerItem[] = [
     buyAmount: 82000,
     sellAmount: 376000,
     netAmount: -294000,
-    tag: '恐慌空头离场'
   }
 ]
 

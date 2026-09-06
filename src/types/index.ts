@@ -193,7 +193,10 @@ export interface DragonTigerItem {
   buyAmount: number
   sellAmount: number
   netAmount: number
-  tag: string
+  /** 榜单突出展示称号（如 多头总龙头 / 空头总龙头） */
+  title?: string
+  /** 突出展示类型：TOP = 最好两支，BOTTOM = 最差两支 */
+  highlight?: 'TOP' | 'BOTTOM'
 }
 
 export interface WeeklyTitle {
