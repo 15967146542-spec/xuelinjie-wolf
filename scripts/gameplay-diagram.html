@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1500px; height: 432px;
+    background: #0b1226;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    color: #dbe4ff;
+    display: flex; flex-direction: column;
+    padding: 34px 40px 28px;
+  }
+  .title { text-align: center; margin-bottom: 8px; }
+  .title h1 { font-size: 26px; color: #ffffff; letter-spacing: 1px; }
+  .title h1 span { color: #4f8cff; }
+  .title p { font-size: 14px; color: #8fa0c9; margin-top: 6px; }
+  .flow { display: flex; align-items: stretch; margin-top: 22px; }
+  .node {
+    flex: 1;
+    background: linear-gradient(160deg, #131c3a 0%, #10172e 100%);
+    border: 1px solid #26335f;
+    border-radius: 12px;
+    padding: 18px 16px 16px;
+    text-align: center;
+  }
+  .node .icon { font-size: 30px; }
+  .node h2 { font-size: 17px; color: #ffffff; margin: 10px 0 8px; }
+  .node p { font-size: 12.5px; color: #9db0dd; line-height: 1.75; }
+  .node p b { color: #4f8cff; font-weight: 600; }
+  .node p em { color: #fbbf24; font-style: normal; font-weight: 600; }
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; color: #4f8cff; font-size: 22px; flex: none;
+  }
+  .loop {
+    margin-top: 16px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-size: 13px; color: #6f83b5;
+  }
+  .loop .line { flex: 1; height: 0; border-top: 1px dashed #33417a; }
+  .admin {
+    margin-top: 14px;
+    background: rgba(79, 140, 255, 0.08);
+    border: 1px dashed #3350a0;
+    border-radius: 12px;
+    padding: 13px 22px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .admin .badge {
+    background: #2b4bd4; color: #fff; font-size: 13px; font-weight: 600;
+    border-radius: 6px; padding: 5px 12px; flex: none;
+  }
+  .admin p { font-size: 13.5px; color: #aebbe8; line-height: 1.7; }
+  .admin p b { color: #7fb0ff; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="title">
+    <h1>「学林街之狼」玩法闭环：<span>评教行为 → 学币激励 → 模拟行情</span></h1>
+    <p>课程与教师被组织成 1627 个可交易的「标的」，口碑即行情，行为即激励（全部为虚拟学币，仅用于教学互动）</p>
+  </div>
+
+  <div class="flow">
+    <div class="node">
+      <div class="icon">🏫</div>
+      <h2>发现课程</h2>
+      <p>行情大厅浏览 <b>1627 个教师标的</b><br>搜索 / 院系筛选 / 领涨榜 / 自选关注</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="node">
+      <div class="icon">⭐</div>
+      <h2>签到评教</h2>
+      <p>匿名评价，<em>签到 +100</em> / <em>评教 +80</em> 学币<br>近 5 讲评分 EMA 聚合成「口碑」</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="node">
+      <div class="icon">📈</div>
+      <h2>模拟交易</h2>
+      <p>五档盘口下单，手续费 <b>0.1%</b><br>单标的仓位 <b>≤ 30%</b>，<b>T+1</b> 批次交割</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="node">
+      <div class="icon">🎁</div>
+      <h2>任务奖励</h2>
+      <p>签到 / 评教 / 成交自动推进任务<br>进度只增不减，跨天惰性结算</p>
+    </div>
+    <div class="arrow">➜</div>
+    <div class="node">
+      <div class="icon">🏆</div>
+      <h2>风云榜单</h2>
+      <p>总资产 / 收益率全站排行<br>手续费 <em>50%</em> 沉淀公共奖池</p>
+    </div>
+  </div>
+
+  <div class="loop">
+    <div class="line"></div>
+    <span>评分聚合与资金流向写入标的行情，决定下一轮涨跌 —— 口碑越好，"股价"越高</span>
+    <div class="line"></div>
+  </div>
+
+  <div class="admin">
+    <span class="badge">🛡 管理端</span>
+    <p>事后治理闭环：<b>评价审核（通过 / 降权 / 屏蔽下架）</b> · 宏观参数调整（评价敏感度 α / 资金流 β / 宏观 γ）· <b>模拟收盘结算</b>生成次日指导价</p>
+  </div>
+</body>
+</html>
