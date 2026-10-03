@@ -26,3 +26,10 @@ dist-ssr
 # AI Environment
 .claude
 .reasonix
+
+# Java backend (backend/)
+backend/target/
+backend/.idea/
+backend/*.iml
+*.class
+application-local.yml

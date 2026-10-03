@@ -1,0 +1,173 @@
+{
+  "info": {
+    "name": "学林街之狼 API v1.0",
+    "description": "契约 v1.0（docs/24320230/API契约-评教与任务模块.md）对应的 Postman 集合。\n\n用法：\n1. 先跑「01-认证 / 注册」（或直接用已有账号），再跑「登录」——登录的 Tests 脚本会自动把 token 存入集合变量；\n2. 之后的请求自动带 Authorization: Bearer {{token}}；\n3. baseUrl 默认 http://localhost:8080，部署后改集合变量即可。\n\n错误码表见契约 §2.2：业务失败为 HTTP 200 + code!=0；401/403 为真实 HTTP 状态码。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "username", "value": "teststudent" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "01-认证",
+      "item": [
+        {
+          "name": "注册",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"nickname\": \"测试同学\",\n  \"password\": \"123456\"\n}"
+            },
+            "description": "契约 §3.1。期望 code=0；重名期望 code=1002；密码<6位期望 code=1001。"
+          }
+        },
+        {
+          "name": "登录（自动保存 Token）",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"123456\"\n}"
+            },
+            "description": "契约 §3.2。期望 code=0 且 data.token 非空；密码错期望 code=1003。"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.code === 0 && res.data && res.data.token) {",
+                  "  pm.collectionVariables.set('token', res.data.token);",
+                  "  pm.test('登录成功且 Token 已保存', () => pm.expect(res.data.token).to.be.a('string'));",
+                  "} else {",
+                  "  pm.test('登录失败 code=' + res.code, () => pm.expect(res.code).to.not.eql(0));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "无 Token 访问受保护接口（期望 401）",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/trade/positions", "host": ["{{baseUrl}}"], "path": ["api", "trade", "positions"] },
+            "description": "契约 §4。期望 HTTP 401 + Result{code:401}。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02-行情（免登录）",
+      "item": [
+        {
+          "name": "标的分页查询",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/market/stocks?page=1&pageSize=5&sortBy=changeRate&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "stocks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "5" },
+                { "key": "keyword", "value": "", "disabled": true },
+                { "key": "college", "value": "", "disabled": true },
+                { "key": "sortBy", "value": "changeRate" },
+                { "key": "order", "value": "desc" }
+              ]
+            },
+            "description": "契约 §3.3。期望 code=0、data.total>0、list 按 changeRate 降序。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03-评教",
+      "item": [
+        {
+          "name": "到课签到",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/evaluation/sign-in", "host": ["{{baseUrl}}"], "path": ["api", "evaluation", "sign-in"] },
+            "body": { "mode": "raw", "raw": "{\n  \"sessionId\": \"cs-01\"\n}" },
+            "description": "契约 §3.4。首次期望 code=0 且 reward=100；重复调用期望 code=2001（幂等）。"
+          }
+        },
+        {
+          "name": "提交评教",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/evaluation/submit", "host": ["{{baseUrl}}"], "path": ["api", "evaluation", "submit"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"cs-01\",\n  \"rating\": 5,\n  \"tags\": [\"板书工整\", \"思路清晰\"],\n  \"comment\": \"树与二叉树讲得清楚\",\n  \"anonymous\": true\n}"
+            },
+            "description": "契约 §3.5。期望 code=0、reward=80、stock.ratingCount 较提交前 +1；未签到先评期望 code=2003；重复期望 code=2004。"
+          }
+        },
+        {
+          "name": "评价查询（分页）",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/evaluations?page=1&pageSize=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "evaluations"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "10" },
+                { "key": "sessionId", "value": "", "disabled": true },
+                { "key": "stockCode", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true }
+              ]
+            },
+            "description": "契约 §3.7。普通用户只应看到 APPROVED（服务端强制公开口径）。"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04-任务与资产",
+      "item": [
+        {
+          "name": "领取任务奖励",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/task/claim", "host": ["{{baseUrl}}"], "path": ["api", "task", "claim"] },
+            "body": { "mode": "raw", "raw": "{\n  \"taskId\": 1\n}" },
+            "description": "契约 §3.6。未达标期望 code=3001；已领取期望 code=3002；成功期望 reward>0 且余额到账。"
+          }
+        },
+        {
+          "name": "持仓与资产",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/trade/positions", "host": ["{{baseUrl}}"], "path": ["api", "trade", "positions"] },
+            "description": "契约 §3.8。期望 code=0；sellableShares 为 T+1 批次汇总（今日买入不计入）。"
+          }
+        }
+      ]
+    }
+  ]
+}
